@@ -313,7 +313,6 @@ function restrictions(pid) {
   const p = S.players[pid], ab = roleOf(p).ability, off = [], notes = [];
   if (ab === "kill") { off.push(pid); notes.push("can't target themselves"); }
   if (ab === "save") {
-    off.push(pid); notes.push("can't protect themselves");
     const last = S.lastSave && S.lastSave[pid];
     if (last != null && S.players[last]) { off.push(last); notes.push(`can't protect ${S.players[last].name} again (protected last night)`); }
   }
