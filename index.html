@@ -81,12 +81,12 @@ const CFG_KEY = "mafia-storyteller-cfg-v2", GAME_KEY = "mafia-storyteller-game-v
 function loadCfg() {
   let c = {};
   try { c = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch (e) {}
-  const d = { roster:[], selected:[], customRoles:[], counts:{ mafia:1, doctor:1, detective:1 }, discussion:5, voting:1, mode:"random", assign:{} };
+  const d = { roster:[], selected:[], customRoles:[], counts:{ mafia:1, doctor:1, detective:1 }, discussion:5, voting:1, mode:"random", assign:{}, blind:true };
   const cfg = Object.assign(d, c);
   ["roster","selected","customRoles"].forEach(k => { if (!Array.isArray(cfg[k])) cfg[k] = []; });
   if (!cfg.counts || typeof cfg.counts !== "object") cfg.counts = d.counts;
   if (!cfg.assign || typeof cfg.assign !== "object") cfg.assign = {};
-  if (cfg.mode !== "manual") cfg.mode = "random";
+  if (!["manual","self"].includes(cfg.mode)) cfg.mode = "random";
   return cfg;
 }
 function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); } catch (e) {} }
@@ -177,7 +177,7 @@ function addCustomRole(name, emoji, team, ability) {
 function startGame() {
   const names = selectedNames();
   if (names.length < 4) return alert("Select at least 4 players.");
-  const manual = CFG.mode === "manual";
+  const manual = CFG.mode === "manual", self = CFG.mode === "self";
   const special = specialTotal();
   if (!manual && special > names.length) return alert("You have more special roles (" + special + ") than players (" + names.length + ").");
   const defs = {};
@@ -189,14 +189,36 @@ function startGame() {
     while (list.length < names.length) list.push("villager");
     shuffle(list);
   }
-  const players = names.map((name,i) => ({ name, role:list[i], alive:true }));
-  const instant = evaluate(players, defs);
+  const players = names.map((name,i) => ({ name, role:self ? null : list[i], alive:true }));
+  const instant = evaluate(names.map((name,i) => ({ name, role:list[i], alive:true })), defs);
   if (instant) return alert("This setup would end immediately. Add at least one Mafia or Serial Killer, and fewer of them than the town.");
   const prior = freshGame(); prior._sel = null;
   S = freshGame();
   S.history = [JSON.stringify(prior)];
-  S.roles = defs; S.players = players; S.phase = "roles";
-  addLog("Game started with " + names.length + " players.");
+  S.roles = defs; S.players = players; S.phase = self ? "claim" : "roles";
+  if (self) {
+    const deck = {}; list.forEach(id => deck[id] = (deck[id] || 0) + 1);
+    S.blind = !!CFG.blind;
+    S.claim = { idx:0, stage:"pass", deck, pool:Object.assign({}, deck) };
+  } else addLog("Game started with " + names.length + " players.");
+  saveGame(); render();
+}
+
+/* ---------- Private role entry (physical cards) ---------- */
+function claimConfirm() {
+  const c = S.claim;
+  if (ui.sel === null || !(c.pool[ui.sel] > 0)) return;
+  S.players[c.idx].role = ui.sel; c.pool[ui.sel]--; ui.sel = null; c.idx++; c.stage = "pass";
+  if (c.idx >= S.players.length) {
+    S.phase = "roles"; delete S.claim;
+    addLog("Game started with " + S.players.length + " players. Roles were entered privately by the players.");
+  }
+  saveGame(); render();
+}
+function claimReset() {
+  const c = S.claim;
+  c.idx = 0; c.stage = "pass"; c.pool = Object.assign({}, c.deck);
+  S.players.forEach(p => p.role = null); ui.sel = null;
   saveGame(); render();
 }
 
@@ -252,12 +274,12 @@ function resolveDawn() {
     if (!p.alive) return;
     const r = roleOf(p), t = A[i];
     if (r.ability === "none") return;
-    if (t == null) { if (r.ability === "kill") lines.push(`${r.name} (${p.name}) chose not to kill`); return; }
-    if (blocked.has(i)) { lines.push(`${r.name} (${p.name}) was blocked`); return; }
-    if (r.ability === "kill") { kills.push(t); lines.push(`${r.name} (${p.name}) targeted ${nm(t)}`); }
-    if (r.ability === "save") { saved.add(t); lines.push(`${r.name} (${p.name}) protected ${nm(t)}`); }
-    if (r.ability === "block") lines.push(`${r.name} (${p.name}) blocked ${nm(t)}`);
-    if (r.ability === "investigate") lines.push(`${r.name} (${p.name}) checked ${nm(t)}: ${roleOf(S.players[t]).team === "mafia" ? "Mafia" : "not Mafia"}`);
+    if (t == null) { if (r.ability === "kill") lines.push(`${actor(p, r)} chose not to kill`); return; }
+    if (blocked.has(i)) { lines.push(`${actor(p, r)} was blocked`); return; }
+    if (r.ability === "kill") { kills.push(t); lines.push(`${actor(p, r)} targeted ${nm(t)}`); }
+    if (r.ability === "save") { saved.add(t); lines.push(`${actor(p, r)} protected ${nm(t)}`); }
+    if (r.ability === "block") lines.push(`${actor(p, r)} blocked ${nm(t)}`);
+    if (r.ability === "investigate") lines.push(`${actor(p, r)} checked ${nm(t)}: ${roleOf(S.players[t]).team === "mafia" ? "Mafia" : "not Mafia"}`);
   });
   const mm = mafiaIdx();
   if (mm.length && A.m != null) {
@@ -362,10 +384,30 @@ function restrictions(pid) {
   }
   return { off, notes };
 }
+function actor(p, r) { return S.blind ? r.name : `${r.name} (${p.name})`; }
+function wakeLabel(who, r) { return S.blind ? `<b>${esc(r.name)}</b>` : `<b>${esc(who)}</b> (${esc(r.name)})`; }
 function playersCard() {
-  return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Players</h2>
-    <button class="secondary small" data-act="toggleRoles">${ui.hideRoles ? "Show roles" : "Hide roles"}</button></div>` +
-    S.players.map(p => `<div class="player ${p.alive ? "" : "dead"}"><span>${esc(p.name)}</span>${ui.hideRoles ? "" : tag(roleOf(p))}</div>`).join("") + `</div>`;
+  // Blind storyteller: a role is only shown once its owner is out of the game.
+  const showTag = p => S.blind ? (!p.alive || S.phase === "over") : !ui.hideRoles;
+  return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Players</h2>` +
+    (S.blind ? "" : `<button class="secondary small" data-act="toggleRoles">${ui.hideRoles ? "Show roles" : "Hide roles"}</button>`) + `</div>` +
+    S.players.map(p => `<div class="player ${p.alive ? "" : "dead"}"><span>${esc(p.name)}</span>${showTag(p) ? tag(roleOf(p)) : ""}</div>`).join("") + `</div>`;
+}
+function claimView() {
+  const c = S.claim, p = S.players[c.idx], n = S.players.length;
+  let h = `<div class="card"><p class="muted">Role entry · ${c.idx + 1} of ${n}</p>`;
+  if (c.stage === "pass") {
+    h += `<h2>📱 Pass the phone to <b>${esc(p.name)}</b></h2>
+      <p class="muted">Everyone else, look away. ${esc(p.name)}, take your card and tap the button.</p>
+      <button data-act="claimShow" style="width:100%;font-size:1.1rem">I'm ${esc(p.name)}: enter my role</button>
+      <div class="row"><button class="secondary small" data-act="claimRestart">↺ Restart role entry</button></div>`;
+  } else {
+    const avail = allRoles().filter(r => (c.pool[r.id] || 0) > 0);
+    h += `<h2>${esc(p.name)}, tap the role on your card</h2><p class="muted">Make sure nobody is looking at the screen.</p>
+      <div class="grid">${avail.map(r => `<button class="pick ${ui.sel === r.id ? "sel" : ""}" data-act="claimRole" data-id="${r.id}">${esc(r.emoji)} ${esc(r.name)}</button>`).join("")}</div>
+      <div class="row"><button data-act="claimOk" ${ui.sel === null ? "disabled" : ""}>Confirm &amp; hide</button><button class="secondary" data-act="claimHide">Cancel</button></div>`;
+  }
+  return h + `</div>`;
 }
 function logCard() {
   return `<div class="card"><h2>Game log</h2><div class="log">` +
@@ -403,12 +445,16 @@ function setupView() {
   } else h += `<p class="muted">No saved names yet.</p>`;
   h += `</div>`;
 
-  const manual = CFG.mode === "manual";
+  const mode = CFG.mode, manual = mode === "manual";
   h += `<div class="card"><h2>2. Roles</h2>
-    <div class="tabs" style="justify-content:flex-start">
-      <button class="tab ${manual ? "" : "on"}" data-act="mode" data-m="random">🎲 Random</button>
-      <button class="tab ${manual ? "on" : ""}" data-act="mode" data-m="manual">✋ Manual</button></div>`;
-  h += manual ? `<p class="muted">Choose each player's role yourself.</p>` : `<p class="muted">Roles are dealt randomly. Villagers fill the remaining seats.</p>`;
+    <div class="tabs" style="justify-content:flex-start;flex-wrap:wrap">
+      <button class="tab ${mode === "random" ? "on" : ""}" data-act="mode" data-m="random">🎲 Random</button>
+      <button class="tab ${manual ? "on" : ""}" data-act="mode" data-m="manual">✋ Manual</button>
+      <button class="tab ${mode === "self" ? "on" : ""}" data-act="mode" data-m="self">📱 Players enter</button></div>`;
+  if (manual) h += `<p class="muted">Choose each player's role yourself.</p>`;
+  else if (mode === "self") h += `<p class="muted">For physical cards: set the roles in your deck below, deal the cards face-down without looking, then pass the phone around so each player secretly taps the role on their own card.</p>
+    <label class="chk" style="margin-bottom:8px"><input type="checkbox" data-act="blind" ${CFG.blind ? "checked" : ""}> 🙈 Keep roles hidden from me (blind storyteller)</label>`;
+  else h += `<p class="muted">Roles are dealt randomly. Villagers fill the remaining seats.</p>`;
   if (!manual) allRoles().forEach(r => {
     const info = `${TEAMS[r.team]} · ${ABILITIES[r.ability]}${r.team === "mafia" ? " · wakes with the Mafia" : ""}`;
     if (r.id === "villager") {
@@ -442,7 +488,7 @@ function setupView() {
     <label class="field">Discussion (minutes)<input type="number" id="discMin" min="0.5" step="0.5" value="${CFG.discussion}"></label>
     <label class="field">Voting (minutes)<input type="number" id="voteMin" min="0.5" step="0.5" value="${CFG.voting}"></label></div></div>`;
 
-  h += `<button data-act="start" style="width:100%;font-size:1.1rem">Assign roles &amp; start (${names.length} players)</button>`;
+  h += `<button data-act="start" style="width:100%;font-size:1.1rem">${CFG.mode === "self" ? "Start role entry" : "Assign roles &amp; start"} (${names.length} players)</button>`;
   return h;
 }
 
@@ -455,13 +501,13 @@ function nightView() {
     const isM = step.kind === "mafia", dp = S.players[step.pid];
     const r = isM ? { name:"Mafia", emoji:"🔪", ability:"kill" } : roleOf(dp);
     const who = isM ? S.players.filter(p => roleOf(p).team === "mafia").map(p => p.name).join(", ") : dp.name;
-    h += `<p class="muted">${esc(r.emoji)} Wake (💀 dead): <b>${esc(who)}</b> (${esc(r.name)})</p>`;
+    h += `<p class="muted">${esc(r.emoji)} Wake (💀 dead): ${wakeLabel(who, r)}</p>`;
     h += `<div class="script">“${esc(r.name)}, open your eyes. ${VERBS[r.ability]} … ${esc(r.name)}, close your eyes.”</div>`;
     h += `<div class="result">💀 Everyone with this role is dead. Read the script and pause a few seconds so nobody can tell. No choice is needed.</div>`;
     h += `<button data-act="next">Continue</button>`;
   } else if (step.kind === "mafia") {
     const mm = mafiaIdx(), blocked = blockedNow();
-    h += `<p class="muted">🔪 Wake: ${mm.map(i => esc(S.players[i].name)).join(", ")}</p>`;
+    h += `<p class="muted">🔪 Wake: ${S.blind ? "<b>Mafia</b>" : mm.map(i => esc(S.players[i].name)).join(", ")}</p>`;
     h += `<div class="script">“Mafia, open your eyes. Choose who to eliminate. … Mafia, close your eyes.”</div>`;
     if (mm.some(i => blocked.has(i))) h += `<div class="blocked">🚫 A Mafia member was blocked tonight, so the Mafia kill will fail. Let them choose anyway so nobody can tell.</div>`;
     h += `<p class="muted">Who did the Mafia point at?</p>${pickGrid(alive(), ui.sel)}
@@ -469,10 +515,10 @@ function nightView() {
   } else if (step.kind === "role") {
     const p = S.players[step.pid], r = roleOf(p), blocked = blockedNow().has(step.pid);
     const verb = { block:"Choose someone to spend the night with.", kill:"Choose who to eliminate.", save:"Choose who to protect tonight.", investigate:"Choose someone to investigate." }[r.ability];
-    h += `<p class="muted">${esc(r.emoji)} Wake: <b>${esc(p.name)}</b> (${esc(r.name)})</p>`;
+    h += `<p class="muted">${esc(r.emoji)} Wake: ${wakeLabel(p.name, r)}</p>`;
     h += `<div class="script">“${esc(r.name)}, open your eyes. ${verb} … ${esc(r.name)}, close your eyes.”</div>`;
     if (blocked) {
-      h += `<div class="blocked">🚫 ${esc(p.name)} was blocked tonight: their ability does nothing. Let them pick anyway, or just continue.</div>`;
+      h += `<div class="blocked">🚫 ${esc(S.blind ? "The " + r.name : p.name)} was blocked tonight: their ability does nothing. Let them pick anyway, or just continue.</div>`;
     }
     const rs = restrictions(step.pid);
     h += `<p class="muted">Their choice:${rs.notes.length ? " (" + esc(rs.notes.join("; ")) + ")" : ""}</p>${pickGrid(alive(), ui.sel, rs.off)}`;
@@ -504,17 +550,20 @@ function render() {
   let h = "";
   if (S.phase === "setup") h = setupView();
   else if (S.phase === "roles") {
-    h = `<div class="card"><h2>Roles assigned</h2><p class="muted">Only the storyteller should see this screen. Hand out the cards, then start the first night. Use “Hide roles” before showing the screen to anyone.</p></div>` +
+    h = (S.blind
+      ? `<div class="card"><h2>🔒 All roles entered</h2><p class="muted">Every player entered their own role privately, so you don't know who is who. Start the first night when everyone is ready.</p></div>`
+      : `<div class="card"><h2>Roles assigned</h2><p class="muted">Only the storyteller should see this screen. Hand out the cards, then start the first night. Use “Hide roles” before showing the screen to anyone.</p></div>`) +
       playersCard() + `<div class="row"><button data-act="begin">Start Night 1</button><button class="secondary" data-act="back">← Back</button></div>`;
   }
+  else if (S.phase === "claim") h = claimView();
   else if (S.phase === "night") h = nightView();
   else if (S.phase === "day") h = dayView();
   else if (S.phase === "over") {
     h = `<div class="card"><div class="win">${WIN_TEXT[S.winner]}</div><div class="row center"><button data-act="again">Back to setup</button><button class="secondary" data-act="back">↩ Undo last step</button></div></div>` + playersCard();
   }
-  if (S.phase !== "setup") h += logCard();
+  if (S.phase !== "setup" && S.phase !== "claim") h += logCard();
   $("app").innerHTML = h;
-  $("backBtn").hidden = S.phase === "setup" || !(S.history && S.history.length);
+  $("backBtn").hidden = S.phase === "setup" || S.phase === "claim" || !(S.history && S.history.length);
 }
 
 /* ---------- Events ---------- */
@@ -544,7 +593,12 @@ $("app").addEventListener("click", e => {
       if (err) alert(err); else render();
       break;
     }
-    case "mode": CFG.mode = b.dataset.m === "manual" ? "manual" : "random"; saveCfg(); render(); break;
+    case "mode": CFG.mode = ["manual","self"].includes(b.dataset.m) ? b.dataset.m : "random"; saveCfg(); render(); break;
+    case "claimShow": S.claim.stage = "pick"; ui.sel = null; saveGame(); render(); break;
+    case "claimHide": S.claim.stage = "pass"; ui.sel = null; saveGame(); render(); break;
+    case "claimRole": ui.sel = ui.sel === b.dataset.id ? null : b.dataset.id; render(); break;
+    case "claimOk": claimConfirm(); break;
+    case "claimRestart": if (confirm("Restart role entry for everyone?")) claimReset(); break;
     case "start": startGame(); break;
     case "begin": beginNight(); break;
     case "back": goBack(); break;
@@ -568,6 +622,8 @@ $("app").addEventListener("change", e => {
     if (t.checked) { if (!CFG.selected.includes(n)) CFG.selected.push(n); }
     else CFG.selected = CFG.selected.filter(x => x !== n);
     saveCfg(); render();
+  } else if (t.dataset && t.dataset.act === "blind") {
+    CFG.blind = t.checked; saveCfg();
   } else if (t.dataset && t.dataset.act === "assign") {
     const n = selectedNames()[Number(t.dataset.n)];
     if (n !== undefined) { CFG.assign[n] = t.value; saveCfg(); render(); }

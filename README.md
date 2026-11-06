@@ -6,6 +6,7 @@ A single-page web app that helps the storyteller (narrator) run a game of Mafia 
 - **Saved player names**: add names once (comma-separated works too), tick the ones playing tonight, untick or delete the rest. Names and your selection are remembered on the device.
 - **Roles with counts**: Mafia, Doctor, Detective, Girlfriend, Serial Killer. Villagers fill the remaining seats.
 - **Random or Manual dealing**: let the app deal roles randomly, or switch to Manual and choose each player's role from a dropdown.
+- **Physical cards, blind storyteller** (📱 Players enter): set the roles in your deck, shuffle and deal the cards face-down without looking, then pass the phone around. Each player taps their own role in private and the screen hides it again. The storyteller never sees who has what: night prompts say "Wake: Doctor" instead of a name, and a role is only revealed when its owner dies. (Untick "Keep roles hidden from me" if you'd rather see them. The Detective's thumbs answer still tells you about the one player they check.)
 - **Custom roles**: create your own with a name, emoji, team (Town / Mafia / Solo killer / Neutral) and night ability (none, protect, investigate, block, kill). Saved for next time.
 - **Guided night**: read-aloud scripts, tells you exactly whom to wake, and shows the Detective's answer.
 - **Dead roles keep their story**: if a role is dead (for example the Doctor), the app still gives you the script to read so nobody can tell who died. It shows "💀 dead" for you and asks for no choice.
