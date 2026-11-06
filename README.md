@@ -15,7 +15,7 @@ A single-page web app that helps the storyteller (narrator) run a game of Mafia 
 |---|---|---|
 | Mafia | Mafia | Wake together and pick one player to kill |
 | Doctor | Town | Protects one player every night (can't skip). Can protect themselves, but can't protect the same player two nights in a row (they can again on the night after) |
-| Detective | Town | Learns whether a player is Mafia (Serial Killer shows as *not* Mafia) |
+| Detective | Town | Learns whether a player is Mafia: thumbs up = Mafia, thumbs down = not Mafia (Serial Killer shows as *not* Mafia) |
 | Girlfriend | Town | Spends the night with a player and blocks their ability. If she blocks a Mafia member, the Mafia kill fails |
 | Serial Killer | Solo | Kills one player each night on their own. Can't target themselves |
 

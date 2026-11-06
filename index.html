@@ -410,7 +410,7 @@ function nightView() {
     h += `<p class="muted">Their choice:${rs.notes.length ? " (" + esc(rs.notes.join("; ")) + ")" : ""}</p>${pickGrid(alive(), ui.sel, rs.off)}`;
     if (r.ability === "investigate" && ui.sel !== null) {
       if (blocked) h += `<div class="result">Blocked: show the Detective nothing useful (e.g. a shrug).</div>`;
-      else h += `<div class="result">Show them: <b>${roleOf(S.players[ui.sel]).team === "mafia" ? "👎 thumbs down (Mafia)" : "👍 thumbs up (not Mafia)"}</b></div>`;
+      else h += `<div class="result">Show them: <b>${roleOf(S.players[ui.sel]).team === "mafia" ? "👍 thumbs up (Mafia)" : "👎 thumbs down (not Mafia)"}</b></div>`;
     }
     const skipLabel = r.ability === "kill" ? "😴 No kill tonight (skip)" : "Skip";
     // The Doctor must protect someone, unless every option is off-limits.
