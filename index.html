@@ -11,7 +11,7 @@
   main { max-width:720px; margin:0 auto; padding:16px; }
   h1 { font-size:1.3rem; margin:0; }
   h2 { font-size:1.1rem; margin:0 0 8px; }
-  header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); max-width:720px; margin:0 auto; }
+  header { position:sticky; top:0; z-index:5; background:var(--bg); display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); max-width:720px; margin:0 auto; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
   .muted { color:var(--muted); font-size:.9rem; }
   .script { font-size:1.05rem; border-left:4px solid var(--accent); padding:8px 12px; background:var(--soft); border-radius:6px; margin:10px 0; }
@@ -337,6 +337,9 @@ setInterval(() => {
 }, 250);
 
 /* ---------- Rendering ---------- */
+function backRow() {
+  return (S.history && S.history.length) ? `<div class="row"><button class="secondary" data-act="back">← Back</button></div>` : "";
+}
 function pickGrid(list, selId, disabled = []) {
   return `<div class="grid">` + list.map(p =>
     `<button class="pick ${selId === p.i ? "sel" : ""}" data-act="pick" data-i="${p.i}" ${disabled.includes(p.i) ? "disabled" : ""}>${esc(p.name)}</button>`).join("") + `</div>`;
@@ -467,7 +470,7 @@ function nightView() {
   } else {
     h += `<div class="script">“The sun rises. Everyone, open your eyes.”</div><button data-act="dawn">Reveal what happened</button>`;
   }
-  return h + `</div>` + playersCard();
+  return h + backRow() + `</div>` + playersCard();
 }
 
 function dayView() {
@@ -476,7 +479,7 @@ function dayView() {
   h += timerCard();
   h += `<p class="muted">After the vote, select the player with the most votes.</p>${pickGrid(alive(), ui.sel)}
     <div class="row"><button data-act="elim" ${ui.sel === null ? "disabled" : ""}>Eliminate selected</button>
-    <button class="secondary" data-act="noElim">No elimination</button></div></div>`;
+    <button class="secondary" data-act="noElim">No elimination</button></div>${backRow()}</div>`;
   return h + playersCard();
 }
 
@@ -485,12 +488,12 @@ function render() {
   if (S.phase === "setup") h = setupView();
   else if (S.phase === "roles") {
     h = `<div class="card"><h2>Roles assigned</h2><p class="muted">Only the storyteller should see this screen. Hand out the cards, then start the first night. Use “Hide roles” before showing the screen to anyone.</p></div>` +
-      playersCard() + `<button data-act="begin">Start Night 1</button>`;
+      playersCard() + `<div class="row"><button data-act="begin">Start Night 1</button><button class="secondary" data-act="back">← Back</button></div>`;
   }
   else if (S.phase === "night") h = nightView();
   else if (S.phase === "day") h = dayView();
   else if (S.phase === "over") {
-    h = `<div class="card"><div class="win">${WIN_TEXT[S.winner]}</div><button data-act="again">Back to setup</button></div>` + playersCard();
+    h = `<div class="card"><div class="win">${WIN_TEXT[S.winner]}</div><div class="row center"><button data-act="again">Back to setup</button><button class="secondary" data-act="back">↩ Undo last step</button></div></div>` + playersCard();
   }
   if (S.phase !== "setup") h += logCard();
   $("app").innerHTML = h;
@@ -527,6 +530,7 @@ $("app").addEventListener("click", e => {
     case "mode": CFG.mode = b.dataset.m === "manual" ? "manual" : "random"; saveCfg(); render(); break;
     case "start": startGame(); break;
     case "begin": beginNight(); break;
+    case "back": goBack(); break;
     case "pick": ui.sel = ui.sel === i ? null : i; render(); break;
     case "next": nextStep(); break;
     case "dawn": resolveDawn(); break;
