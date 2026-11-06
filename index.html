@@ -54,7 +54,7 @@
 </style>
 </head>
 <body>
-<header><h1>🎭 Mafia Storyteller</h1><button class="secondary small" id="resetBtn">New game</button></header>
+<header><h1>🎭 Mafia Storyteller</h1><div class="row" style="margin:0"><button class="secondary small" id="backBtn" hidden>← Back</button><button class="secondary small" id="resetBtn">New game</button></div></header>
 <main id="app"></main>
 
 <script>
@@ -133,6 +133,25 @@ function checkWin() {
   return true;
 }
 
+/* ---------- Undo / Back ---------- */
+function pushHistory() {
+  const { history, ...rest } = S;
+  rest._sel = ui.sel;
+  S.history = history || [];
+  S.history.push(JSON.stringify(rest));
+  if (S.history.length > 60) S.history.shift();
+}
+function goBack() {
+  const h = S.history;
+  if (!h || !h.length) return;
+  const prev = JSON.parse(h.pop());
+  ui.sel = prev._sel === undefined ? null : prev._sel;
+  delete prev._sel;
+  prev.history = h;
+  S = prev;
+  saveGame(); render();
+}
+
 /* ---------- Setup actions ---------- */
 function addNames(raw) {
   raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).forEach(name => {
@@ -172,14 +191,17 @@ function startGame() {
   const players = names.map((name,i) => ({ name, role:list[i], alive:true }));
   const instant = evaluate(players, defs);
   if (instant) return alert("This setup would end immediately. Add at least one Mafia or Serial Killer, and fewer of them than the town.");
+  const prior = freshGame(); prior._sel = null;
   S = freshGame();
+  S.history = [JSON.stringify(prior)];
   S.roles = defs; S.players = players; S.phase = "roles";
   addLog("Game started with " + names.length + " players.");
   saveGame(); render();
 }
 
 /* ---------- Night ---------- */
-function beginNight() {
+function beginNight(skipPush) {
+  if (!skipPush) pushHistory();
   S.night++; S.phase = "night"; S.actions = {}; S.timer = null; S.nightNotes = [];
   const entries = [];
   if (S.players.some(p => p.alive && roleOf(p).team === "mafia")) entries.push({ kind:"mafia", w:MAFIA_W, pid:-1 });
@@ -202,6 +224,7 @@ function blockedNow() {
 function mafiaIdx() { return S.players.map((p,i)=>i).filter(i => S.players[i].alive && roleOf(S.players[i]).team === "mafia"); }
 
 function nextStep() {
+  pushHistory();
   const step = S.steps[S.stepIdx];
   if (step.kind === "mafia") S.actions.m = ui.sel;
   else if (step.kind === "role") {
@@ -213,6 +236,7 @@ function nextStep() {
 }
 
 function resolveDawn() {
+  pushHistory();
   const A = S.actions, blocked = blockedNow(), lines = [], kills = [], saved = new Set();
   const nm = i => S.players[i].name;
   S.players.forEach((p,i) => {
@@ -250,13 +274,14 @@ function resolveDawn() {
 
 /* ---------- Day ---------- */
 function eliminate(i) {
+  pushHistory();
   if (i === null) addLog("Day " + S.night + ": no one was voted out.");
   else {
     S.players[i].alive = false;
     addLog("Day " + S.night + ": " + S.players[i].name + " was voted out (" + roleOf(S.players[i]).name + ").");
   }
   ui.sel = null; S.timer = null;
-  if (!checkWin()) { beginNight(); return; }
+  if (!checkWin()) { beginNight(true); return; }
   saveGame(); render();
 }
 
@@ -469,6 +494,7 @@ function render() {
   }
   if (S.phase !== "setup") h += logCard();
   $("app").innerHTML = h;
+  $("backBtn").hidden = S.phase === "setup" || !(S.history && S.history.length);
 }
 
 /* ---------- Events ---------- */
@@ -534,6 +560,7 @@ $("app").addEventListener("keydown", e => {
   if (e.key === "Enter" && e.target.id === "newName") { addNames(e.target.value); render(); $("newName").focus(); }
 });
 function newGame() { S = freshGame(); ui.sel = null; saveGame(); render(); }
+$("backBtn").onclick = goBack;
 $("resetBtn").onclick = () => {
   if (S.phase === "setup" || confirm("Abandon the current game and go back to setup?")) newGame();
 };

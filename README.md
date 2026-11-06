@@ -9,6 +9,7 @@ A single-page web app that helps the storyteller (narrator) run a game of Mafia 
 - **Custom roles**: create your own with a name, emoji, team (Town / Mafia / Solo killer / Neutral) and night ability (none, protect, investigate, block, kill). Saved for next time.
 - **Guided night**: read-aloud scripts, tells you exactly whom to wake, and shows the Detective's answer.
 - **Discussion and voting timers**: set the minutes in setup; start, pause, reset, ±30s, with a beep and vibration at zero. The timer survives a page refresh.
+- **← Back button**: undo the last step (a night choice, the dawn reveal, a vote, or going back to setup) if you tap by mistake.
 - Alive tracking, win detection, a game log, a private night report, and a "Hide roles" button.
 
 ## Role rules used
