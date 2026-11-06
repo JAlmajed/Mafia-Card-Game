@@ -64,6 +64,7 @@ const ABILITIES = {
   none:"No night action", save:"Protects a player", investigate:"Investigates a player",
   block:"Blocks a player's ability", kill:"Kills a player"
 };
+const VERBS = { block:"Choose someone to spend the night with.", kill:"Choose who to eliminate.", save:"Choose who to protect tonight.", investigate:"Choose someone to investigate." };
 const WEIGHT = { block:1, kill:3, save:4, investigate:5 };
 const MAFIA_W = 2;
 const BUILTIN = [
@@ -204,11 +205,18 @@ function beginNight(skipPush) {
   if (!skipPush) pushHistory();
   S.night++; S.phase = "night"; S.actions = {}; S.timer = null; S.nightNotes = [];
   const entries = [];
-  if (S.players.some(p => p.alive && roleOf(p).team === "mafia")) entries.push({ kind:"mafia", w:MAFIA_W, pid:-1 });
-  S.players.forEach((p,i) => {
-    if (!p.alive) return;
-    const ab = roleOf(p).ability;
-    if (ab !== "none") entries.push({ kind:"role", pid:i, w:WEIGHT[ab] });
+  // Dead roles are still "woken" (storyline only, no choice) so nobody can tell who died.
+  const mafiaAll = S.players.map((p,i) => i).filter(i => roleOf(S.players[i]).team === "mafia");
+  if (mafiaAll.length) entries.push({ kind:"mafia", w:MAFIA_W, pid:-1, dead:!mafiaAll.some(i => S.players[i].alive) });
+  const done = new Set();
+  S.players.forEach(p => {
+    const r = roleOf(p);
+    if (r.ability === "none" || done.has(p.role)) return;
+    done.add(p.role);
+    const holders = S.players.map((q,j) => j).filter(j => S.players[j].role === p.role);
+    const living = holders.filter(j => S.players[j].alive);
+    if (living.length) living.forEach(j => entries.push({ kind:"role", pid:j, w:WEIGHT[r.ability] }));
+    else entries.push({ kind:"role", pid:holders[0], w:WEIGHT[r.ability], dead:true });
   });
   entries.sort((a,b) => a.w - b.w || a.pid - b.pid);
   S.steps = [{ kind:"close" }, ...entries, { kind:"dawn" }];
@@ -226,7 +234,8 @@ function mafiaIdx() { return S.players.map((p,i)=>i).filter(i => S.players[i].al
 function nextStep() {
   pushHistory();
   const step = S.steps[S.stepIdx];
-  if (step.kind === "mafia") S.actions.m = ui.sel;
+  if (step.dead) { /* storyline only: nothing to record */ }
+  else if (step.kind === "mafia") S.actions.m = ui.sel;
   else if (step.kind === "role") {
     S.actions[step.pid] = ui.sel;
     if (roleOf(S.players[step.pid]).ability === "save") { S.lastSave = S.lastSave || {}; S.lastSave[step.pid] = ui.sel; }
@@ -442,6 +451,14 @@ function nightView() {
   let h = `<div class="card"><h2>🌙 Night ${S.night}</h2>`;
   if (step.kind === "close") {
     h += `<div class="script">“Night falls on the town. Everyone, close your eyes.”</div><button data-act="next">Continue</button>`;
+  } else if (step.dead) {
+    const isM = step.kind === "mafia", dp = S.players[step.pid];
+    const r = isM ? { name:"Mafia", emoji:"🔪", ability:"kill" } : roleOf(dp);
+    const who = isM ? S.players.filter(p => roleOf(p).team === "mafia").map(p => p.name).join(", ") : dp.name;
+    h += `<p class="muted">${esc(r.emoji)} Wake (💀 dead): <b>${esc(who)}</b> (${esc(r.name)})</p>`;
+    h += `<div class="script">“${esc(r.name)}, open your eyes. ${VERBS[r.ability]} … ${esc(r.name)}, close your eyes.”</div>`;
+    h += `<div class="result">💀 Everyone with this role is dead. Read the script and pause a few seconds so nobody can tell. No choice is needed.</div>`;
+    h += `<button data-act="next">Continue</button>`;
   } else if (step.kind === "mafia") {
     const mm = mafiaIdx(), blocked = blockedNow();
     h += `<p class="muted">🔪 Wake: ${mm.map(i => esc(S.players[i].name)).join(", ")}</p>`;

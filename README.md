@@ -8,6 +8,7 @@ A single-page web app that helps the storyteller (narrator) run a game of Mafia 
 - **Random or Manual dealing**: let the app deal roles randomly, or switch to Manual and choose each player's role from a dropdown.
 - **Custom roles**: create your own with a name, emoji, team (Town / Mafia / Solo killer / Neutral) and night ability (none, protect, investigate, block, kill). Saved for next time.
 - **Guided night**: read-aloud scripts, tells you exactly whom to wake, and shows the Detective's answer.
+- **Dead roles keep their story**: if a role is dead (for example the Doctor), the app still gives you the script to read so nobody can tell who died. It shows "💀 dead" for you and asks for no choice.
 - **Discussion and voting timers**: set the minutes in setup; start, pause, reset, ±30s, with a beep and vibration at zero. The timer survives a page refresh.
 - **← Back button**: undo the last step (a night choice, the dawn reveal, a vote, or going back to setup) if you tap by mistake.
 - Alive tracking, win detection, a game log, a private night report, and a "Hide roles" button.
