@@ -212,10 +212,12 @@ function claimConfirm() {
   const c = S.claim;
   if (ui.sel === null || !(c.pool[ui.sel] > 0)) return;
   S.players[c.idx].role = ui.sel; c.pool[ui.sel]--; ui.sel = null; c.idx++; c.stage = "pass";
-  if (c.idx >= S.players.length) {
-    S.phase = "roles"; delete S.claim;
-    addLog("Game started with " + S.players.length + " players. Roles were entered privately by the players.");
-  }
+  if (c.idx >= S.players.length) c.stage = "done";
+  saveGame(); render();
+}
+function claimFinish() {
+  S.phase = "roles"; delete S.claim;
+  addLog("Game started with " + S.players.length + " players. Roles were entered privately by the players.");
   saveGame(); render();
 }
 function claimReset() {
@@ -422,7 +424,15 @@ function playersCard() {
     S.players.map(p => `<div class="player ${p.alive ? "" : "dead"}"><span>${esc(p.name)}</span>${showTag(p) ? (p.role ? tag(roleOf(p)) : `<span class="tag">❓ Not identified</span>`) : ""}</div>`).join("") + `</div>`;
 }
 function claimView() {
-  const c = S.claim, p = S.players[c.idx], n = S.players.length;
+  const c = S.claim;
+  if (c.stage === "done") {
+    return `<div class="card" style="text-align:center">
+      <h2>✅ All roles entered</h2>
+      <p style="font-size:1.2rem;margin:14px 0">📱 Please hand the phone back to the <b>storyteller</b>.</p>
+      <p class="muted">Players: nobody look at the screen after this point.</p>
+      <button data-act="claimDone" style="width:100%;font-size:1.1rem">I'm the storyteller: continue</button></div>`;
+  }
+  const p = S.players[c.idx], n = S.players.length;
   let h = `<div class="card"><p class="muted">Role entry · ${c.idx + 1} of ${n}</p>`;
   if (c.stage === "pass") {
     h += `<h2>📱 Pass the phone to <b>${esc(p.name)}</b></h2>
@@ -640,6 +650,7 @@ $("app").addEventListener("click", e => {
     case "claimHide": S.claim.stage = "pass"; ui.sel = null; saveGame(); render(); break;
     case "claimRole": ui.sel = ui.sel === b.dataset.id ? null : b.dataset.id; render(); break;
     case "claimOk": claimConfirm(); break;
+    case "claimDone": claimFinish(); break;
     case "idPick": {
       const a = Array.isArray(ui.sel) ? ui.sel.slice() : [], k = a.indexOf(i);
       const need = S.deck[S.steps[S.stepIdx].roleId];
