@@ -5,6 +5,7 @@ A single-page web app that helps the storyteller (narrator) run a game of Mafia 
 ## Features
 - **Saved player names**: add names once (comma-separated works too), tick the ones playing tonight, untick or delete the rest. Names and your selection are remembered on the device.
 - **Roles with counts**: Mafia, Doctor, Detective, Girlfriend, Serial Killer. Villagers fill the remaining seats.
+- **Random or Manual dealing**: let the app deal roles randomly, or switch to Manual and choose each player's role from a dropdown.
 - **Custom roles**: create your own with a name, emoji, team (Town / Mafia / Solo killer / Neutral) and night ability (none, protect, investigate, block, kill). Saved for next time.
 - **Guided night**: read-aloud scripts, tells you exactly whom to wake, and shows the Detective's answer.
 - **Discussion and voting timers**: set the minutes in setup; start, pause, reset, ±30s, with a beep and vibration at zero. The timer survives a page refresh.

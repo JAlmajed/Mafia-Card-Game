@@ -80,10 +80,12 @@ const CFG_KEY = "mafia-storyteller-cfg-v2", GAME_KEY = "mafia-storyteller-game-v
 function loadCfg() {
   let c = {};
   try { c = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch (e) {}
-  const d = { roster:[], selected:[], customRoles:[], counts:{ mafia:1, doctor:1, detective:1 }, discussion:5, voting:1 };
+  const d = { roster:[], selected:[], customRoles:[], counts:{ mafia:1, doctor:1, detective:1 }, discussion:5, voting:1, mode:"random", assign:{} };
   const cfg = Object.assign(d, c);
   ["roster","selected","customRoles"].forEach(k => { if (!Array.isArray(cfg[k])) cfg[k] = []; });
   if (!cfg.counts || typeof cfg.counts !== "object") cfg.counts = d.counts;
+  if (!cfg.assign || typeof cfg.assign !== "object") cfg.assign = {};
+  if (cfg.mode !== "manual") cfg.mode = "random";
   return cfg;
 }
 function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); } catch (e) {} }
@@ -108,6 +110,7 @@ function addLog(t) { S.log.push(t); }
 function alive() { return S.players.map((p,i)=>({ ...p, i })).filter(p => p.alive); }
 function tag(role) { return `<span class="tag ${role.team}">${esc(role.emoji)} ${esc(role.name)}</span>`; }
 function selectedNames() { return CFG.roster.filter(n => CFG.selected.includes(n)); }
+function assignedRole(name) { const id = CFG.assign[name]; return allRoles().some(r => r.id === id) ? id : "villager"; }
 function specialTotal() { return allRoles().filter(r => r.id !== "villager").reduce((s,r) => s + (CFG.counts[r.id] || 0), 0); }
 
 /* ---------- Win logic ---------- */
@@ -154,14 +157,18 @@ function addCustomRole(name, emoji, team, ability) {
 function startGame() {
   const names = selectedNames();
   if (names.length < 4) return alert("Select at least 4 players.");
+  const manual = CFG.mode === "manual";
   const special = specialTotal();
-  if (special > names.length) return alert("You have more special roles (" + special + ") than players (" + names.length + ").");
+  if (!manual && special > names.length) return alert("You have more special roles (" + special + ") than players (" + names.length + ").");
   const defs = {};
   allRoles().forEach(r => defs[r.id] = r);
-  const list = [];
-  allRoles().forEach(r => { if (r.id !== "villager") for (let i=0;i<(CFG.counts[r.id]||0);i++) list.push(r.id); });
-  while (list.length < names.length) list.push("villager");
-  shuffle(list);
+  let list = [];
+  if (manual) list = names.map(assignedRole);
+  else {
+    allRoles().forEach(r => { if (r.id !== "villager") for (let i=0;i<(CFG.counts[r.id]||0);i++) list.push(r.id); });
+    while (list.length < names.length) list.push("villager");
+    shuffle(list);
+  }
   const players = names.map((name,i) => ({ name, role:list[i], alive:true }));
   const instant = evaluate(players, defs);
   if (instant) return alert("This setup would end immediately. Add at least one Mafia or Serial Killer, and fewer of them than the town.");
@@ -359,8 +366,13 @@ function setupView() {
   } else h += `<p class="muted">No saved names yet.</p>`;
   h += `</div>`;
 
-  h += `<div class="card"><h2>2. Roles</h2><p class="muted">Villagers fill the remaining seats automatically.</p>`;
-  allRoles().forEach(r => {
+  const manual = CFG.mode === "manual";
+  h += `<div class="card"><h2>2. Roles</h2>
+    <div class="tabs" style="justify-content:flex-start">
+      <button class="tab ${manual ? "" : "on"}" data-act="mode" data-m="random">🎲 Random</button>
+      <button class="tab ${manual ? "on" : ""}" data-act="mode" data-m="manual">✋ Manual</button></div>`;
+  h += manual ? `<p class="muted">Choose each player's role yourself.</p>` : `<p class="muted">Roles are dealt randomly. Villagers fill the remaining seats.</p>`;
+  if (!manual) allRoles().forEach(r => {
     const info = `${TEAMS[r.team]} · ${ABILITIES[r.ability]}${r.team === "mafia" ? " · wakes with the Mafia" : ""}`;
     if (r.id === "villager") {
       h += `<div class="item"><div>${esc(r.emoji)} <b>${esc(r.name)}</b><div class="muted">${info}</div></div><b>${villagers}</b></div>`;
@@ -371,6 +383,17 @@ function setupView() {
         <button class="secondary small" data-act="roleDelta" data-id="${r.id}" data-d="1">+</button></div></div>`;
     }
   });
+  else {
+    if (!names.length) h += `<p class="muted">Select players above first.</p>`;
+    const tally = {};
+    names.forEach((n,i) => {
+      const cur = assignedRole(n); tally[cur] = (tally[cur] || 0) + 1;
+      h += `<div class="item"><span>${esc(n)}</span><select data-act="assign" data-n="${i}" style="width:auto;max-width:60%">` +
+        allRoles().map(r => `<option value="${r.id}" ${r.id === cur ? "selected" : ""}>${esc(r.emoji)} ${esc(r.name)}</option>`).join("") + `</select></div>`;
+    });
+    if (names.length) h += `<p class="muted">${allRoles().filter(r => tally[r.id]).map(r => tally[r.id] + " " + esc(r.name)).join(" · ")}</p>`;
+    CFG.customRoles.forEach(r => { h += `<div class="item"><span class="muted">Custom: ${esc(r.emoji)} ${esc(r.name)}</span><button class="x" data-act="delRole" data-id="${r.id}" aria-label="Delete role">🗑</button></div>`; });
+  }
   h += `<details><summary>➕ Create a custom role</summary>
     <div class="row"><input type="text" id="crName" class="grow" placeholder="Role name (e.g. Jester)"><input type="text" id="crEmoji" placeholder="Emoji" maxlength="4" style="width:90px"></div>
     <div class="row"><label class="field">Team<select id="crTeam">${Object.entries(TEAMS).map(([k,v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
@@ -475,6 +498,7 @@ $("app").addEventListener("click", e => {
       if (err) alert(err); else render();
       break;
     }
+    case "mode": CFG.mode = b.dataset.m === "manual" ? "manual" : "random"; saveCfg(); render(); break;
     case "start": startGame(); break;
     case "begin": beginNight(); break;
     case "pick": ui.sel = ui.sel === i ? null : i; render(); break;
@@ -497,6 +521,9 @@ $("app").addEventListener("change", e => {
     if (t.checked) { if (!CFG.selected.includes(n)) CFG.selected.push(n); }
     else CFG.selected = CFG.selected.filter(x => x !== n);
     saveCfg(); render();
+  } else if (t.dataset && t.dataset.act === "assign") {
+    const n = selectedNames()[Number(t.dataset.n)];
+    if (n !== undefined) { CFG.assign[n] = t.value; saveCfg(); render(); }
   } else if (t.id === "discMin" || t.id === "voteMin") {
     const v = Math.max(0.5, Number(t.value) || 1);
     if (t.id === "discMin") CFG.discussion = v; else CFG.voting = v;
