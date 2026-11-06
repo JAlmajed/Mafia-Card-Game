@@ -1,26 +1,32 @@
 # 🎭 Mafia Storyteller
 
-A single-page web app that helps the storyteller (narrator) run a game of Mafia with cards. No backend, no build step.
+A single-page web app that helps the storyteller (narrator) run a game of Mafia with cards. No backend, no build step: just open `index.html`.
 
-## What it does
-- Enter player names and choose how many Mafia / Doctor / Detective (the rest become Villagers)
-- Randomly assigns roles (the storyteller sees them; hand out physical cards or tell players privately)
-- Guides each night with a read-aloud script: Mafia → Doctor → Detective
-- Resolves dawn (kill, save, or no attack), then runs the day vote
-- Tracks who is alive and detects the winner automatically
-- Keeps a game log, and saves progress in the browser so a refresh won't lose the game
+## Features
+- **Saved player names**: add names once (comma-separated works too), tick the ones playing tonight, untick or delete the rest. Names and your selection are remembered on the device.
+- **Roles with counts**: Mafia, Doctor, Detective, Girlfriend, Serial Killer. Villagers fill the remaining seats.
+- **Custom roles**: create your own with a name, emoji, team (Town / Mafia / Solo killer / Neutral) and night ability (none, protect, investigate, block, kill). Saved for next time.
+- **Guided night**: read-aloud scripts, tells you exactly whom to wake, and shows the Detective's answer.
+- **Discussion and voting timers**: set the minutes in setup; start, pause, reset, ±30s, with a beep and vibration at zero. The timer survives a page refresh.
+- Alive tracking, win detection, a game log, a private night report, and a "Hide roles" button.
+
+## Role rules used
+| Role | Team | Night action |
+|---|---|---|
+| Mafia | Mafia | Wake together and pick one player to kill |
+| Doctor | Town | Protects one player from being killed |
+| Detective | Town | Learns whether a player is Mafia (Serial Killer shows as *not* Mafia) |
+| Girlfriend | Town | Spends the night with a player and blocks their ability. If she blocks a Mafia member, the Mafia kill fails |
+| Serial Killer | Solo | Kills one player each night on their own |
+
+Night order: Girlfriend → Mafia → Serial Killer → Doctor → Detective.
+
+**Winning:** Town wins when all Mafia and Serial Killers are gone. Mafia wins when they equal or outnumber everyone else and no Serial Killer is alive. The Serial Killer wins when no Mafia are left and only 2 players remain. If everyone dies, it's a draw.
 
 ## Run it
 Open `index.html` in any browser.
 
 ## Publish on GitHub Pages
-1. Create a new repository on GitHub (e.g. `mafia-storyteller`).
-2. Upload `index.html` and `README.md` (Add file → Upload files), then commit.
-3. Go to **Settings → Pages**, set **Source** to "Deploy from a branch", choose `main` and `/ (root)`, and save.
-4. After a minute your app is live at `https://<your-username>.github.io/mafia-storyteller/`.
-
-## Ideas for next steps
-- More roles (Godfather, Bodyguard, Jester)
-- Timer for discussion and voting
-- Multiple languages (e.g. Arabic with RTL support)
-- Install as a phone app (PWA)
+1. In the repo, go to **Settings → Pages**.
+2. Set **Source** to "Deploy from a branch", choose `main` and `/ (root)`, and save.
+3. After a minute your app is live at `https://<your-username>.github.io/<repo-name>/`.

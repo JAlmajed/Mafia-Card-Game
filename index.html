@@ -5,269 +5,494 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mafia Storyteller</title>
 <style>
-  :root { --bg:#14121a; --card:#1f1c2a; --text:#ece8f5; --muted:#9a94ad; --accent:#c0392b; --ok:#2e9e6b; --warn:#d4a017; --line:#322e42; }
+  :root { --bg:#14121a; --card:#1f1c2a; --text:#ece8f5; --muted:#9a94ad; --accent:#c0392b; --ok:#2e9e6b; --warn:#d4a017; --line:#322e42; --soft:#2a2538; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; line-height:1.45; }
   main { max-width:720px; margin:0 auto; padding:16px; }
-  h1 { font-size:1.4rem; margin:0; }
-  h2 { font-size:1.15rem; margin:0 0 8px; }
+  h1 { font-size:1.3rem; margin:0; }
+  h2 { font-size:1.1rem; margin:0 0 8px; }
   header { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); max-width:720px; margin:0 auto; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
   .muted { color:var(--muted); font-size:.9rem; }
-  .script { font-size:1.1rem; border-left:4px solid var(--accent); padding:8px 12px; background:#2a2538; border-radius:6px; margin:10px 0; }
-  textarea, input[type=number] { width:100%; background:#14121a; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
-  textarea { min-height:140px; }
-  .row { display:flex; gap:10px; flex-wrap:wrap; }
-  .row > label { flex:1; min-width:120px; font-size:.9rem; color:var(--muted); }
+  .script { font-size:1.05rem; border-left:4px solid var(--accent); padding:8px 12px; background:var(--soft); border-radius:6px; margin:10px 0; }
+  input[type=text], input[type=number], select { width:100%; background:#14121a; color:var(--text); border:1px solid var(--line); border-radius:8px; padding:10px; font:inherit; }
+  .row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin:8px 0; }
+  .row > .grow { flex:1; min-width:120px; }
+  label.field { display:block; font-size:.85rem; color:var(--muted); flex:1; min-width:120px; }
   button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:10px 14px; font:inherit; cursor:pointer; }
   button.secondary { background:#3a3550; }
-  button.ok { background:var(--ok); }
+  button.small { padding:6px 10px; font-size:.85rem; }
+  button.x { background:transparent; color:var(--muted); padding:4px 8px; }
   button:disabled { opacity:.4; cursor:not-allowed; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:8px; margin:10px 0; }
-  .pick { background:#2a2538; border:2px solid transparent; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:8px; margin:10px 0; }
+  .pick { background:var(--soft); border:2px solid transparent; }
   .pick.sel { border-color:var(--warn); background:#3d3420; }
-  .player { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); }
-  .player:last-child { border-bottom:0; }
+  .player, .item { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .player:last-child, .item:last-child { border-bottom:0; }
+  .chk { display:flex; align-items:center; gap:10px; flex:1; cursor:pointer; }
+  .chk input { width:20px; height:20px; accent-color:var(--accent); }
   .dead { opacity:.45; text-decoration:line-through; }
-  .tag { font-size:.75rem; padding:2px 8px; border-radius:999px; background:#3a3550; }
-  .tag.mafia { background:#6b1d15; } .tag.doctor { background:#1d5a40; } .tag.detective { background:#1d3f6b; }
+  .tag { font-size:.75rem; padding:2px 8px; border-radius:999px; background:#3a3550; white-space:nowrap; }
+  .tag.mafia { background:#6b1d15; } .tag.town { background:#1d4a6b; } .tag.killer { background:#6b4a1d; } .tag.neutral { background:#4a4a4a; }
+  .stepper { display:flex; align-items:center; gap:8px; }
+  .stepper b { min-width:1.6em; text-align:center; }
   .result { padding:10px; border-radius:8px; background:#14121a; border:1px dashed var(--warn); margin:8px 0; }
+  .blocked { padding:10px; border-radius:8px; background:#3a1d1d; border:1px solid var(--accent); margin:8px 0; }
   .log div { padding:3px 0; font-size:.92rem; border-bottom:1px solid var(--line); }
   .win { font-size:1.4rem; text-align:center; padding:20px 0; }
-  .spacer { height:8px; }
+  details { margin-top:10px; } summary { cursor:pointer; color:var(--muted); }
+  details div { padding:3px 0; font-size:.9rem; }
+  .timer { background:#14121a; border:1px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; text-align:center; }
+  .tabs { display:flex; gap:8px; justify-content:center; margin-bottom:6px; }
+  .tab { background:#3a3550; } .tab.on { background:var(--accent); }
+  .time { font-size:3.2rem; font-weight:700; font-variant-numeric:tabular-nums; letter-spacing:.04em; }
+  .time.low { color:var(--warn); }
+  .timer.done .time { color:var(--accent); animation:blink 1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:.25; } }
+  @media (prefers-reduced-motion: reduce) { .timer.done .time { animation:none; } }
+  .center { justify-content:center; }
 </style>
 </head>
 <body>
-<header><h1>🎭 Mafia Storyteller</h1><button class="secondary" id="resetBtn">New game</button></header>
+<header><h1>🎭 Mafia Storyteller</h1><button class="secondary small" id="resetBtn">New game</button></header>
 <main id="app"></main>
 
 <script>
-const ROLE_INFO = {
-  mafia:     { label:"Mafia",     emoji:"🔪" },
-  doctor:    { label:"Doctor",    emoji:"💉" },
-  detective: { label:"Detective", emoji:"🔍" },
-  villager:  { label:"Villager",  emoji:"🏘️" }
+/* ---------- Data ---------- */
+const TEAMS = { town:"Town", mafia:"Mafia", killer:"Solo killer", neutral:"Neutral" };
+const ABILITIES = {
+  none:"No night action", save:"Protects a player", investigate:"Investigates a player",
+  block:"Blocks a player's ability", kill:"Kills a player"
 };
-const KEY = "mafia-storyteller-v1";
-let S = load() || fresh();
-let ui = { sel:null, setupNames:"", setupMafia:null, setupDoc:1, setupDet:1, detResult:null, confirmDay:false };
+const WEIGHT = { block:1, kill:3, save:4, investigate:5 };
+const MAFIA_W = 2;
+const BUILTIN = [
+  { id:"villager",    name:"Villager",     emoji:"🏘️", team:"town",   ability:"none" },
+  { id:"mafia",       name:"Mafia",        emoji:"🔪", team:"mafia",  ability:"none" },
+  { id:"doctor",      name:"Doctor",       emoji:"💉", team:"town",   ability:"save" },
+  { id:"detective",   name:"Detective",    emoji:"🔍", team:"town",   ability:"investigate" },
+  { id:"girlfriend",  name:"Girlfriend",   emoji:"💋", team:"town",   ability:"block" },
+  { id:"serialkiller",name:"Serial Killer",emoji:"🪓", team:"killer", ability:"kill" }
+];
+const CFG_KEY = "mafia-storyteller-cfg-v2", GAME_KEY = "mafia-storyteller-game-v2";
 
-function fresh() { return { phase:"setup", night:0, players:[], log:[], steps:[], stepIdx:0, actions:{}, winner:null }; }
-function load() { try { return JSON.parse(localStorage.getItem(KEY)); } catch(e) { return null; } }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} }
+/* ---------- Persistence ---------- */
+function loadCfg() {
+  let c = {};
+  try { c = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch (e) {}
+  const d = { roster:[], selected:[], customRoles:[], counts:{ mafia:1, doctor:1, detective:1 }, discussion:5, voting:1 };
+  const cfg = Object.assign(d, c);
+  ["roster","selected","customRoles"].forEach(k => { if (!Array.isArray(cfg[k])) cfg[k] = []; });
+  if (!cfg.counts || typeof cfg.counts !== "object") cfg.counts = d.counts;
+  return cfg;
+}
+function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); } catch (e) {} }
+function loadGame() { try { return JSON.parse(localStorage.getItem(GAME_KEY)); } catch (e) { return null; } }
+function saveGame() { try { localStorage.setItem(GAME_KEY, JSON.stringify(S)); } catch (e) {} }
+
+let CFG = loadCfg();
+let S = loadGame() || freshGame();
+let ui = { sel:null, hideRoles:false };
+
+function freshGame() {
+  return { phase:"setup", night:0, players:[], roles:{}, log:[], steps:[], stepIdx:0, actions:{}, winner:null, dawnText:"", nightNotes:[], timer:null };
+}
+
+/* ---------- Helpers ---------- */
+const $ = id => document.getElementById(id);
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
-function alive() { return S.players.map((p,i)=>({...p,i})).filter(p=>p.alive); }
 function shuffle(a) { for (let i=a.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function allRoles() { return BUILTIN.concat(CFG.customRoles); }
+function roleOf(p) { return S.roles[p.role]; }
 function addLog(t) { S.log.push(t); }
-function tag(role) { return `<span class="tag ${role}">${ROLE_INFO[role].emoji} ${ROLE_INFO[role].label}</span>`; }
+function alive() { return S.players.map((p,i)=>({ ...p, i })).filter(p => p.alive); }
+function tag(role) { return `<span class="tag ${role.team}">${esc(role.emoji)} ${esc(role.name)}</span>`; }
+function selectedNames() { return CFG.roster.filter(n => CFG.selected.includes(n)); }
+function specialTotal() { return allRoles().filter(r => r.id !== "villager").reduce((s,r) => s + (CFG.counts[r.id] || 0), 0); }
 
-function suggestedMafia(n) { return Math.max(1, Math.floor(n/4)); }
-
-function startGame(names, mafia, doc, det) {
-  const n = names.length;
-  const roles = [];
-  for (let i=0;i<mafia;i++) roles.push("mafia");
-  for (let i=0;i<doc;i++) roles.push("doctor");
-  for (let i=0;i<det;i++) roles.push("detective");
-  while (roles.length < n) roles.push("villager");
-  shuffle(roles);
-  S = fresh();
-  S.players = names.map((name,i)=>({ name, role:roles[i], alive:true }));
-  S.phase = "roles";
-  addLog("Game started with " + n + " players.");
-  save(); render();
+/* ---------- Win logic ---------- */
+function evaluate(players, roles) {
+  const a = players.filter(p => p.alive);
+  if (a.length === 0) return "draw";
+  const mafia = a.filter(p => roles[p.role].team === "mafia").length;
+  const killers = a.filter(p => roles[p.role].team === "killer").length;
+  if (mafia === 0 && killers === 0) return "town";
+  if (killers > 0 && mafia === 0 && a.length <= 2) return "killer";
+  if (mafia > 0 && killers === 0 && mafia >= a.length - mafia) return "mafia";
+  return null;
+}
+const WIN_TEXT = { town:"🏘️ The Town wins!", mafia:"🔪 The Mafia wins!", killer:"🪓 The Solo Killer wins!", draw:"💀 Nobody is left — it's a draw!" };
+function checkWin() {
+  const w = evaluate(S.players, S.roles);
+  if (!w) return false;
+  S.winner = w; S.phase = "over"; S.timer = null;
+  addLog("🏆 " + WIN_TEXT[w]);
+  return true;
 }
 
+/* ---------- Setup actions ---------- */
+function addNames(raw) {
+  raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).forEach(name => {
+    const existing = CFG.roster.find(n => n.toLowerCase() === name.toLowerCase());
+    const use = existing || name;
+    if (!existing) CFG.roster.push(name);
+    if (!CFG.selected.includes(use)) CFG.selected.push(use);
+  });
+  saveCfg();
+}
+function addCustomRole(name, emoji, team, ability) {
+  name = name.trim();
+  if (!name) return "Give the role a name.";
+  if (allRoles().some(r => r.name.toLowerCase() === name.toLowerCase())) return "A role with that name already exists.";
+  const id = "c" + Date.now().toString(36) + Math.floor(Math.random()*1000);
+  CFG.customRoles.push({ id, name, emoji:(emoji || "⭐").trim() || "⭐", team, ability, custom:true });
+  CFG.counts[id] = 1;
+  saveCfg();
+  return null;
+}
+
+function startGame() {
+  const names = selectedNames();
+  if (names.length < 4) return alert("Select at least 4 players.");
+  const special = specialTotal();
+  if (special > names.length) return alert("You have more special roles (" + special + ") than players (" + names.length + ").");
+  const defs = {};
+  allRoles().forEach(r => defs[r.id] = r);
+  const list = [];
+  allRoles().forEach(r => { if (r.id !== "villager") for (let i=0;i<(CFG.counts[r.id]||0);i++) list.push(r.id); });
+  while (list.length < names.length) list.push("villager");
+  shuffle(list);
+  const players = names.map((name,i) => ({ name, role:list[i], alive:true }));
+  const instant = evaluate(players, defs);
+  if (instant) return alert("This setup would end immediately. Add at least one Mafia or Serial Killer, and fewer of them than the town.");
+  S = freshGame();
+  S.roles = defs; S.players = players; S.phase = "roles";
+  addLog("Game started with " + names.length + " players.");
+  saveGame(); render();
+}
+
+/* ---------- Night ---------- */
 function beginNight() {
-  S.night++;
-  S.phase = "night";
-  S.actions = {};
-  S.steps = ["close"];
-  if (alive().some(p=>p.role==="mafia")) S.steps.push("mafia");
-  if (alive().some(p=>p.role==="doctor")) S.steps.push("doctor");
-  if (alive().some(p=>p.role==="detective")) S.steps.push("detective");
-  S.steps.push("dawn");
-  S.stepIdx = 0; ui.sel = null; ui.detResult = null;
+  S.night++; S.phase = "night"; S.actions = {}; S.timer = null; S.nightNotes = [];
+  const entries = [];
+  if (S.players.some(p => p.alive && roleOf(p).team === "mafia")) entries.push({ kind:"mafia", w:MAFIA_W, pid:-1 });
+  S.players.forEach((p,i) => {
+    if (!p.alive) return;
+    const ab = roleOf(p).ability;
+    if (ab !== "none") entries.push({ kind:"role", pid:i, w:WEIGHT[ab] });
+  });
+  entries.sort((a,b) => a.w - b.w || a.pid - b.pid);
+  S.steps = [{ kind:"close" }, ...entries, { kind:"dawn" }];
+  S.stepIdx = 0; ui.sel = null;
   addLog("— Night " + S.night + " —");
-  save(); render();
+  saveGame(); render();
 }
+function blockedNow() {
+  const b = new Set();
+  S.players.forEach((p,i) => { if (p.alive && roleOf(p).ability === "block" && S.actions[i] != null) b.add(S.actions[i]); });
+  return b;
+}
+function mafiaIdx() { return S.players.map((p,i)=>i).filter(i => S.players[i].alive && roleOf(S.players[i]).team === "mafia"); }
 
 function nextStep() {
   const step = S.steps[S.stepIdx];
-  if (["mafia","doctor","detective"].includes(step)) {
-    if (ui.sel === null && !(step!=="mafia")) return;
-    S.actions[step] = ui.sel;
-  }
-  S.stepIdx++; ui.sel = null; ui.detResult = null;
-  save(); render();
+  if (step.kind === "mafia") S.actions.m = ui.sel;
+  else if (step.kind === "role") S.actions[step.pid] = ui.sel;
+  S.stepIdx++; ui.sel = null;
+  saveGame(); render();
 }
 
 function resolveDawn() {
-  const victim = S.actions.mafia;
-  const saved = S.actions.doctor;
-  let text;
-  if (victim === undefined || victim === null) {
-    text = "Nobody was attacked.";
-  } else if (victim === saved) {
-    text = S.players[victim].name + " was attacked but saved by the Doctor!";
-  } else {
-    S.players[victim].alive = false;
-    text = S.players[victim].name + " was killed in the night (" + ROLE_INFO[S.players[victim].role].label + ").";
+  const A = S.actions, blocked = blockedNow(), lines = [], kills = [], saved = new Set();
+  const nm = i => S.players[i].name;
+  S.players.forEach((p,i) => {
+    if (!p.alive) return;
+    const r = roleOf(p), t = A[i];
+    if (t == null || r.ability === "none") return;
+    if (blocked.has(i)) { lines.push(`${r.name} (${p.name}) was blocked`); return; }
+    if (r.ability === "kill") { kills.push(t); lines.push(`${r.name} (${p.name}) targeted ${nm(t)}`); }
+    if (r.ability === "save") { saved.add(t); lines.push(`${r.name} (${p.name}) protected ${nm(t)}`); }
+    if (r.ability === "block") lines.push(`${r.name} (${p.name}) blocked ${nm(t)}`);
+    if (r.ability === "investigate") lines.push(`${r.name} (${p.name}) checked ${nm(t)}: ${roleOf(S.players[t]).team === "mafia" ? "Mafia" : "not Mafia"}`);
+  });
+  const mm = mafiaIdx();
+  if (mm.length && A.m != null) {
+    if (mm.some(i => blocked.has(i))) lines.push("Mafia kill cancelled: a Mafia member was blocked");
+    else { kills.push(A.m); lines.push(`Mafia targeted ${nm(A.m)}`); }
   }
-  addLog("Dawn: " + text);
-  S.dawnText = text;
-  if (!checkWin()) S.phase = "day";
-  save(); render();
+  const died = [], seen = new Set();
+  kills.forEach(t => {
+    if (seen.has(t)) return; seen.add(t);
+    if (saved.has(t)) lines.push(`${nm(t)} was saved`);
+    else if (S.players[t].alive) { S.players[t].alive = false; died.push(t); }
+  });
+  S.dawnText = died.length
+    ? died.map(i => `${nm(i)} was killed in the night (${roleOf(S.players[i]).name}).`).join(" ")
+    : "Nobody died tonight.";
+  S.nightNotes = lines;
+  addLog("Night report: " + (lines.length ? lines.join("; ") : "no actions"));
+  addLog("Dawn: " + S.dawnText);
+  if (!checkWin()) { S.phase = "day"; S.timer = newTimer("discussion"); }
+  ui.sel = null;
+  saveGame(); render();
 }
 
-function checkWin() {
-  const a = alive();
-  const m = a.filter(p=>p.role==="mafia").length;
-  const t = a.length - m;
-  if (m === 0) { S.winner = "town"; S.phase = "over"; addLog("🏆 Town wins!"); return true; }
-  if (m >= t) { S.winner = "mafia"; S.phase = "over"; addLog("🏆 Mafia wins!"); return true; }
-  return false;
-}
-
+/* ---------- Day ---------- */
 function eliminate(i) {
-  if (i === null) { addLog("Day " + S.night + ": no one was eliminated."); }
+  if (i === null) addLog("Day " + S.night + ": no one was voted out.");
   else {
     S.players[i].alive = false;
-    addLog("Day " + S.night + ": " + S.players[i].name + " was voted out (" + ROLE_INFO[S.players[i].role].label + ").");
+    addLog("Day " + S.night + ": " + S.players[i].name + " was voted out (" + roleOf(S.players[i]).name + ").");
   }
-  ui.sel = null;
+  ui.sel = null; S.timer = null;
   if (!checkWin()) { beginNight(); return; }
-  save(); render();
+  saveGame(); render();
 }
 
-function pickGrid(list, selectedId) {
+/* ---------- Timer ---------- */
+let audioCtx = null;
+function durationMs(mode) { return Math.max(0.5, Number(mode === "voting" ? CFG.voting : CFG.discussion) || 1) * 60000; }
+function newTimer(mode) { return { mode, remaining:durationMs(mode), running:false, endAt:0, done:false }; }
+function timerRemaining() {
+  const t = S.timer; if (!t) return 0;
+  return t.running ? Math.max(0, t.endAt - Date.now()) : t.remaining;
+}
+function fmt(ms) { const s = Math.ceil(ms/1000); return String(Math.floor(s/60)).padStart(2,"0") + ":" + String(s%60).padStart(2,"0"); }
+function ensureAudio() {
+  try { audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === "suspended") audioCtx.resume(); } catch (e) {}
+}
+function alarm() {
+  try {
+    if (audioCtx) [0, .35, .7].forEach(d => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+      const t0 = audioCtx.currentTime + d;
+      g.gain.setValueAtTime(.25, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + .3);
+      o.start(t0); o.stop(t0 + .3);
+    });
+  } catch (e) {}
+  try { if (navigator.vibrate) navigator.vibrate([300,150,300,150,300]); } catch (e) {}
+}
+function timerAct(act, arg) {
+  const t = S.timer; if (!t) return;
+  if (act === "mode") { S.timer = newTimer(arg); }
+  else if (act === "toggle") {
+    ensureAudio();
+    if (t.running) { t.remaining = timerRemaining(); t.running = false; }
+    else { if (t.remaining <= 0) t.remaining = durationMs(t.mode); t.done = false; t.running = true; t.endAt = Date.now() + t.remaining; }
+  } else if (act === "reset") { S.timer = newTimer(t.mode); }
+  else if (act === "adj") {
+    const d = Number(arg);
+    if (t.running) t.endAt = Math.max(Date.now(), t.endAt + d); else t.remaining = Math.max(0, t.remaining + d);
+    t.done = false;
+  }
+  saveGame(); render();
+}
+setInterval(() => {
+  if (S.phase !== "day" || !S.timer) return;
+  const el = $("timerDisplay"); if (!el) return;
+  const rem = timerRemaining();
+  el.textContent = fmt(rem);
+  el.classList.toggle("low", S.timer.running && rem <= 10000);
+  if (S.timer.running && rem <= 0) {
+    S.timer.running = false; S.timer.remaining = 0; S.timer.done = true;
+    saveGame(); alarm(); render();
+  }
+}, 250);
+
+/* ---------- Rendering ---------- */
+function pickGrid(list, selId) {
   return `<div class="grid">` + list.map(p =>
-    `<button class="pick ${selectedId===p.i?"sel":""}" data-pick="${p.i}">${esc(p.name)}</button>`).join("") + `</div>`;
+    `<button class="pick ${selId === p.i ? "sel" : ""}" data-act="pick" data-i="${p.i}">${esc(p.name)}</button>`).join("") + `</div>`;
 }
-
 function playersCard() {
-  return `<div class="card"><h2>Players</h2>` + S.players.map(p =>
-    `<div class="player ${p.alive?"":"dead"}"><span>${esc(p.name)}</span>${tag(p.role)}</div>`).join("") + `</div>`;
+  return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Players</h2>
+    <button class="secondary small" data-act="toggleRoles">${ui.hideRoles ? "Show roles" : "Hide roles"}</button></div>` +
+    S.players.map(p => `<div class="player ${p.alive ? "" : "dead"}"><span>${esc(p.name)}</span>${ui.hideRoles ? "" : tag(roleOf(p))}</div>`).join("") + `</div>`;
 }
 function logCard() {
   return `<div class="card"><h2>Game log</h2><div class="log">` +
-    S.log.slice().reverse().map(l=>`<div>${esc(l)}</div>`).join("") + `</div></div>`;
+    S.log.slice().reverse().map(l => `<div>${esc(l)}</div>`).join("") + `</div></div>`;
+}
+function timerCard() {
+  const t = S.timer; if (!t) return "";
+  const rem = timerRemaining();
+  return `<div class="timer ${t.done ? "done" : ""}">
+    <div class="tabs">
+      <button class="tab ${t.mode === "discussion" ? "on" : ""}" data-act="tmode" data-m="discussion">💬 Discussion</button>
+      <button class="tab ${t.mode === "voting" ? "on" : ""}" data-act="tmode" data-m="voting">🗳️ Voting</button>
+    </div>
+    <div class="time ${t.running && rem <= 10000 ? "low" : ""}" id="timerDisplay">${fmt(rem)}</div>
+    ${t.done ? `<div><b>⏰ Time's up!</b></div>` : ""}
+    <div class="row center">
+      <button data-act="ttoggle">${t.running ? "⏸ Pause" : (t.remaining < durationMs(t.mode) && t.remaining > 0 ? "▶ Resume" : "▶ Start")}</button>
+      <button class="secondary" data-act="treset">↺ Reset</button>
+      <button class="secondary" data-act="tadj" data-d="-30000">−30s</button>
+      <button class="secondary" data-act="tadj" data-d="30000">+30s</button>
+    </div></div>`;
+}
+
+function setupView() {
+  const names = selectedNames();
+  const villagers = Math.max(0, names.length - specialTotal());
+  let h = `<div class="card"><h2>1. Players</h2>
+    <p class="muted">Saved names stay on this device. Tick the ones playing tonight.</p>
+    <div class="row"><input type="text" id="newName" class="grow" placeholder="Add a name (or several, comma-separated)"><button data-act="addName">Add</button></div>`;
+  if (CFG.roster.length) {
+    h += `<div class="row"><button class="secondary small" data-act="selAll">Select all</button><button class="secondary small" data-act="selNone">Clear</button>
+      <span class="muted">${names.length} of ${CFG.roster.length} selected</span></div>`;
+    h += CFG.roster.map((n,i) => `<div class="item"><label class="chk"><input type="checkbox" data-act="toggleName" data-i="${i}" ${CFG.selected.includes(n) ? "checked" : ""}> ${esc(n)}</label>
+      <button class="x" data-act="delName" data-i="${i}" aria-label="Remove ${esc(n)}">✕</button></div>`).join("");
+  } else h += `<p class="muted">No saved names yet.</p>`;
+  h += `</div>`;
+
+  h += `<div class="card"><h2>2. Roles</h2><p class="muted">Villagers fill the remaining seats automatically.</p>`;
+  allRoles().forEach(r => {
+    const info = `${TEAMS[r.team]} · ${ABILITIES[r.ability]}${r.team === "mafia" ? " · wakes with the Mafia" : ""}`;
+    if (r.id === "villager") {
+      h += `<div class="item"><div>${esc(r.emoji)} <b>${esc(r.name)}</b><div class="muted">${info}</div></div><b>${villagers}</b></div>`;
+    } else {
+      h += `<div class="item"><div>${esc(r.emoji)} <b>${esc(r.name)}</b><div class="muted">${esc(info)}</div></div>
+        <div class="stepper">${r.custom ? `<button class="x" data-act="delRole" data-id="${r.id}" aria-label="Delete role">🗑</button>` : ""}
+        <button class="secondary small" data-act="roleDelta" data-id="${r.id}" data-d="-1">−</button><b>${CFG.counts[r.id] || 0}</b>
+        <button class="secondary small" data-act="roleDelta" data-id="${r.id}" data-d="1">+</button></div></div>`;
+    }
+  });
+  h += `<details><summary>➕ Create a custom role</summary>
+    <div class="row"><input type="text" id="crName" class="grow" placeholder="Role name (e.g. Jester)"><input type="text" id="crEmoji" placeholder="Emoji" maxlength="4" style="width:90px"></div>
+    <div class="row"><label class="field">Team<select id="crTeam">${Object.entries(TEAMS).map(([k,v]) => `<option value="${k}">${v}</option>`).join("")}</select></label>
+    <label class="field">Night ability<select id="crAbility">${Object.entries(ABILITIES).map(([k,v]) => `<option value="${k}">${v}</option>`).join("")}</select></label></div>
+    <p class="muted">Mafia-team roles wake together with the Mafia. Neutral roles never stop the Town from winning.</p>
+    <button data-act="addRole">Add role</button></details></div>`;
+
+  h += `<div class="card"><h2>3. Timers</h2><div class="row">
+    <label class="field">Discussion (minutes)<input type="number" id="discMin" min="0.5" step="0.5" value="${CFG.discussion}"></label>
+    <label class="field">Voting (minutes)<input type="number" id="voteMin" min="0.5" step="0.5" value="${CFG.voting}"></label></div></div>`;
+
+  h += `<button data-act="start" style="width:100%;font-size:1.1rem">Assign roles &amp; start (${names.length} players)</button>`;
+  return h;
+}
+
+function nightView() {
+  const step = S.steps[S.stepIdx];
+  let h = `<div class="card"><h2>🌙 Night ${S.night}</h2>`;
+  if (step.kind === "close") {
+    h += `<div class="script">“Night falls on the town. Everyone, close your eyes.”</div><button data-act="next">Continue</button>`;
+  } else if (step.kind === "mafia") {
+    const mm = mafiaIdx(), blocked = blockedNow();
+    h += `<p class="muted">🔪 Wake: ${mm.map(i => esc(S.players[i].name)).join(", ")}</p>`;
+    h += `<div class="script">“Mafia, open your eyes. Choose who to eliminate. … Mafia, close your eyes.”</div>`;
+    if (mm.some(i => blocked.has(i))) h += `<div class="blocked">🚫 A Mafia member was blocked tonight, so the Mafia kill will fail. Let them choose anyway so nobody can tell.</div>`;
+    h += `<p class="muted">Who did the Mafia point at?</p>${pickGrid(alive(), ui.sel)}
+      <button data-act="next" ${ui.sel === null ? "disabled" : ""}>Confirm</button>`;
+  } else if (step.kind === "role") {
+    const p = S.players[step.pid], r = roleOf(p), blocked = blockedNow().has(step.pid);
+    const verb = { block:"Choose someone to spend the night with.", kill:"Choose who to eliminate.", save:"Choose who to protect tonight.", investigate:"Choose someone to investigate." }[r.ability];
+    h += `<p class="muted">${esc(r.emoji)} Wake: <b>${esc(p.name)}</b> (${esc(r.name)})</p>`;
+    h += `<div class="script">“${esc(r.name)}, open your eyes. ${verb} … ${esc(r.name)}, close your eyes.”</div>`;
+    if (blocked) {
+      h += `<div class="blocked">🚫 ${esc(p.name)} was blocked tonight: their ability does nothing. Let them pick anyway, or just continue.</div>`;
+    }
+    h += `<p class="muted">Their choice:</p>${pickGrid(alive(), ui.sel)}`;
+    if (r.ability === "investigate" && ui.sel !== null) {
+      if (blocked) h += `<div class="result">Blocked: show the Detective nothing useful (e.g. a shrug).</div>`;
+      else h += `<div class="result">Show them: <b>${roleOf(S.players[ui.sel]).team === "mafia" ? "👎 thumbs down (Mafia)" : "👍 thumbs up (not Mafia)"}</b></div>`;
+    }
+    h += `<button data-act="next">${ui.sel === null ? "Skip" : "Confirm"}</button>`;
+  } else {
+    h += `<div class="script">“The sun rises. Everyone, open your eyes.”</div><button data-act="dawn">Reveal what happened</button>`;
+  }
+  return h + `</div>` + playersCard();
+}
+
+function dayView() {
+  let h = `<div class="card"><h2>☀️ Day ${S.night}</h2><div class="script">${esc(S.dawnText)}</div>`;
+  if (S.nightNotes.length) h += `<details><summary>Night report (storyteller only)</summary>${S.nightNotes.map(l => `<div>${esc(l)}</div>`).join("")}</details>`;
+  h += timerCard();
+  h += `<p class="muted">After the vote, select the player with the most votes.</p>${pickGrid(alive(), ui.sel)}
+    <div class="row"><button data-act="elim" ${ui.sel === null ? "disabled" : ""}>Eliminate selected</button>
+    <button class="secondary" data-act="noElim">No elimination</button></div></div>`;
+  return h + playersCard();
 }
 
 function render() {
-  const app = document.getElementById("app");
   let h = "";
-  if (S.phase === "setup") {
-    const names = ui.setupNames.split("\n").map(s=>s.trim()).filter(Boolean);
-    const sm = ui.setupMafia ?? suggestedMafia(names.length);
-    h += `<div class="card"><h2>New game</h2>
-      <p class="muted">One player name per line (minimum 4).</p>
-      <textarea id="names" placeholder="Alice&#10;Bob&#10;Carol&#10;Dave&#10;Eve">${esc(ui.setupNames)}</textarea>
-      <div class="spacer"></div>
-      <div class="row">
-        <label>Mafia<input type="number" id="nMafia" min="1" value="${sm}"></label>
-        <label>Doctor<input type="number" id="nDoc" min="0" max="1" value="${ui.setupDoc}"></label>
-        <label>Detective<input type="number" id="nDet" min="0" max="1" value="${ui.setupDet}"></label>
-      </div>
-      <p class="muted" id="setupInfo">${names.length} players. Remaining roles become Villagers.</p>
-      <button id="startBtn">Assign roles</button></div>`;
-  }
+  if (S.phase === "setup") h = setupView();
   else if (S.phase === "roles") {
-    h += `<div class="card"><h2>Roles assigned</h2>
-      <p class="muted">Only the storyteller should see this screen. Hand out cards (or tell each player their role privately), then start the first night.</p></div>`;
-    h += playersCard();
-    h += `<button id="beginBtn">Start Night 1</button>`;
+    h = `<div class="card"><h2>Roles assigned</h2><p class="muted">Only the storyteller should see this screen. Hand out the cards, then start the first night. Use “Hide roles” before showing the screen to anyone.</p></div>` +
+      playersCard() + `<button data-act="begin">Start Night 1</button>`;
   }
-  else if (S.phase === "night") {
-    const step = S.steps[S.stepIdx];
-    h += `<div class="card"><h2>🌙 Night ${S.night}</h2>`;
-    if (step === "close") {
-      h += `<div class="script">“Night falls on the town. Everyone, close your eyes.”</div>
-        <button id="nextBtn">Continue</button>`;
-    } else if (step === "mafia") {
-      h += `<div class="script">“Mafia, open your eyes. Choose who to eliminate. … Mafia, close your eyes.”</div>
-        <p class="muted">Who did the Mafia point at?</p>${pickGrid(alive(), ui.sel)}
-        <button id="nextBtn" ${ui.sel===null?"disabled":""}>Confirm</button>`;
-    } else if (step === "doctor") {
-      h += `<div class="script">“Doctor, open your eyes. Choose who to protect tonight. … Doctor, close your eyes.”</div>
-        <p class="muted">Who is protected? (Skip if the Doctor is dead.)</p>${pickGrid(alive(), ui.sel)}
-        <button id="nextBtn">${ui.sel===null?"Skip":"Confirm"}</button>`;
-    } else if (step === "detective") {
-      h += `<div class="script">“Detective, open your eyes. Choose someone to investigate.”</div>
-        <p class="muted">Who is investigated?</p>${pickGrid(alive(), ui.sel)}`;
-      if (ui.sel !== null) {
-        const isM = S.players[ui.sel].role === "mafia";
-        h += `<div class="result">Show the Detective: <b>${isM ? "👎 thumbs down (Mafia)" : "👍 thumbs up (not Mafia)"}</b></div>`;
-      }
-      h += `<div class="script">“Detective, close your eyes.”</div>
-        <button id="nextBtn">${ui.sel===null?"Skip":"Done"}</button>`;
-    } else if (step === "dawn") {
-      h += `<div class="script">“The sun rises. Everyone, open your eyes.”</div>
-        <button id="dawnBtn">Reveal what happened</button>`;
-    }
-    h += `</div>`;
-    h += playersCard();
-  }
-  else if (S.phase === "day") {
-    h += `<div class="card"><h2>☀️ Day ${S.night}</h2>
-      <div class="script">${esc(S.dawnText || "")}</div>
-      <p class="muted">Let the town discuss, then vote. Select the player who got the most votes.</p>
-      ${pickGrid(alive(), ui.sel)}
-      <div class="row">
-        <button id="elimBtn" ${ui.sel===null?"disabled":""}>Eliminate selected</button>
-        <button class="secondary" id="noElimBtn">No elimination</button>
-      </div></div>`;
-    h += playersCard();
-  }
+  else if (S.phase === "night") h = nightView();
+  else if (S.phase === "day") h = dayView();
   else if (S.phase === "over") {
-    h += `<div class="card"><div class="win">${S.winner==="town" ? "🏘️ The Town wins!" : "🔪 The Mafia wins!"}</div>
-      <button id="again">Play again</button></div>`;
-    h += playersCard();
+    h = `<div class="card"><div class="win">${WIN_TEXT[S.winner]}</div><button data-act="again">Back to setup</button></div>` + playersCard();
   }
   if (S.phase !== "setup") h += logCard();
-  app.innerHTML = h;
-  bind();
+  $("app").innerHTML = h;
 }
 
-function bind() {
-  const $ = id => document.getElementById(id);
-  document.querySelectorAll("[data-pick]").forEach(b => b.onclick = () => {
-    const i = Number(b.dataset.pick);
-    ui.sel = ui.sel === i ? null : i; render();
-  });
-  if ($("names")) {
-    $("names").oninput = e => {
-      ui.setupNames = e.target.value;
-      const n = ui.setupNames.split("\n").map(s=>s.trim()).filter(Boolean).length;
-      $("setupInfo").textContent = n + " players. Remaining roles become Villagers.";
-      if (ui.setupMafia === null) $("nMafia").value = suggestedMafia(n);
-    };
-    $("nMafia").oninput = e => ui.setupMafia = Number(e.target.value);
-    $("nDoc").oninput = e => ui.setupDoc = Number(e.target.value);
-    $("nDet").oninput = e => ui.setupDet = Number(e.target.value);
-    $("startBtn").onclick = () => {
-      const names = ui.setupNames.split("\n").map(s=>s.trim()).filter(Boolean);
-      const m = Number($("nMafia").value), d = Number($("nDoc").value), t = Number($("nDet").value);
-      if (names.length < 4) return alert("You need at least 4 players.");
-      if (new Set(names.map(n=>n.toLowerCase())).size !== names.length) return alert("Player names must be unique.");
-      if (m < 1 || m + d + t > names.length) return alert("Role counts don't fit the number of players.");
-      if (m * 2 >= names.length) return alert("Too many Mafia: the game would end immediately.");
-      startGame(names, m, d, t);
-    };
+/* ---------- Events ---------- */
+$("app").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b || b.type === "checkbox") return;
+  const a = b.dataset.act, i = Number(b.dataset.i);
+  switch (a) {
+    case "addName": { const el = $("newName"); addNames(el.value); render(); $("newName").focus(); break; }
+    case "selAll": CFG.selected = CFG.roster.slice(); saveCfg(); render(); break;
+    case "selNone": CFG.selected = []; saveCfg(); render(); break;
+    case "delName": {
+      const n = CFG.roster[i];
+      CFG.roster.splice(i, 1); CFG.selected = CFG.selected.filter(x => x !== n); saveCfg(); render(); break;
+    }
+    case "roleDelta": {
+      const id = b.dataset.id, d = Number(b.dataset.d);
+      CFG.counts[id] = Math.max(0, (CFG.counts[id] || 0) + d); saveCfg(); render(); break;
+    }
+    case "delRole": {
+      const id = b.dataset.id;
+      if (!confirm("Delete this custom role?")) break;
+      CFG.customRoles = CFG.customRoles.filter(r => r.id !== id); delete CFG.counts[id]; saveCfg(); render(); break;
+    }
+    case "addRole": {
+      const err = addCustomRole($("crName").value, $("crEmoji").value, $("crTeam").value, $("crAbility").value);
+      if (err) alert(err); else render();
+      break;
+    }
+    case "start": startGame(); break;
+    case "begin": beginNight(); break;
+    case "pick": ui.sel = ui.sel === i ? null : i; render(); break;
+    case "next": nextStep(); break;
+    case "dawn": resolveDawn(); break;
+    case "elim": eliminate(ui.sel); break;
+    case "noElim": eliminate(null); break;
+    case "again": newGame(); break;
+    case "toggleRoles": ui.hideRoles = !ui.hideRoles; render(); break;
+    case "tmode": timerAct("mode", b.dataset.m); break;
+    case "ttoggle": timerAct("toggle"); break;
+    case "treset": timerAct("reset"); break;
+    case "tadj": timerAct("adj", b.dataset.d); break;
   }
-  if ($("beginBtn")) $("beginBtn").onclick = beginNight;
-  if ($("nextBtn")) $("nextBtn").onclick = nextStep;
-  if ($("dawnBtn")) $("dawnBtn").onclick = resolveDawn;
-  if ($("elimBtn")) $("elimBtn").onclick = () => eliminate(ui.sel);
-  if ($("noElimBtn")) $("noElimBtn").onclick = () => eliminate(null);
-  if ($("again")) $("again").onclick = newGame;
-}
-
-function newGame() {
-  S = fresh(); ui.sel = null; ui.setupNames = ""; ui.setupMafia = null;
-  save(); render();
-}
-document.getElementById("resetBtn").onclick = () => { if (confirm("Abandon the current game and start a new one?")) newGame(); };
+});
+$("app").addEventListener("change", e => {
+  const t = e.target;
+  if (t.dataset && t.dataset.act === "toggleName") {
+    const n = CFG.roster[Number(t.dataset.i)];
+    if (t.checked) { if (!CFG.selected.includes(n)) CFG.selected.push(n); }
+    else CFG.selected = CFG.selected.filter(x => x !== n);
+    saveCfg(); render();
+  } else if (t.id === "discMin" || t.id === "voteMin") {
+    const v = Math.max(0.5, Number(t.value) || 1);
+    if (t.id === "discMin") CFG.discussion = v; else CFG.voting = v;
+    saveCfg(); render();
+  }
+});
+$("app").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target.id === "newName") { addNames(e.target.value); render(); $("newName").focus(); }
+});
+function newGame() { S = freshGame(); ui.sel = null; saveGame(); render(); }
+$("resetBtn").onclick = () => {
+  if (S.phase === "setup" || confirm("Abandon the current game and go back to setup?")) newGame();
+};
 render();
 </script>
 </body>
