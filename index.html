@@ -95,7 +95,7 @@ let S = loadGame() || freshGame();
 let ui = { sel:null, hideRoles:false };
 
 function freshGame() {
-  return { phase:"setup", night:0, players:[], roles:{}, log:[], steps:[], stepIdx:0, actions:{}, winner:null, dawnText:"", nightNotes:[], timer:null };
+  return { phase:"setup", night:0, players:[], roles:{}, log:[], steps:[], stepIdx:0, actions:{}, winner:null, dawnText:"", nightNotes:[], timer:null, lastSave:{} };
 }
 
 /* ---------- Helpers ---------- */
@@ -197,7 +197,10 @@ function mafiaIdx() { return S.players.map((p,i)=>i).filter(i => S.players[i].al
 function nextStep() {
   const step = S.steps[S.stepIdx];
   if (step.kind === "mafia") S.actions.m = ui.sel;
-  else if (step.kind === "role") S.actions[step.pid] = ui.sel;
+  else if (step.kind === "role") {
+    S.actions[step.pid] = ui.sel;
+    if (roleOf(S.players[step.pid]).ability === "save") { S.lastSave = S.lastSave || {}; S.lastSave[step.pid] = ui.sel; }
+  }
   S.stepIdx++; ui.sel = null;
   saveGame(); render();
 }
@@ -301,9 +304,19 @@ setInterval(() => {
 }, 250);
 
 /* ---------- Rendering ---------- */
-function pickGrid(list, selId) {
+function pickGrid(list, selId, disabled = []) {
   return `<div class="grid">` + list.map(p =>
-    `<button class="pick ${selId === p.i ? "sel" : ""}" data-act="pick" data-i="${p.i}">${esc(p.name)}</button>`).join("") + `</div>`;
+    `<button class="pick ${selId === p.i ? "sel" : ""}" data-act="pick" data-i="${p.i}" ${disabled.includes(p.i) ? "disabled" : ""}>${esc(p.name)}</button>`).join("") + `</div>`;
+}
+function restrictions(pid) {
+  const p = S.players[pid], ab = roleOf(p).ability, off = [], notes = [];
+  if (ab === "kill") { off.push(pid); notes.push("can't target themselves"); }
+  if (ab === "save") {
+    off.push(pid); notes.push("can't protect themselves");
+    const last = S.lastSave && S.lastSave[pid];
+    if (last != null && S.players[last]) { off.push(last); notes.push(`can't protect ${S.players[last].name} again (protected last night)`); }
+  }
+  return { off, notes };
 }
 function playersCard() {
   return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Players</h2>
@@ -393,7 +406,8 @@ function nightView() {
     if (blocked) {
       h += `<div class="blocked">🚫 ${esc(p.name)} was blocked tonight: their ability does nothing. Let them pick anyway, or just continue.</div>`;
     }
-    h += `<p class="muted">Their choice:</p>${pickGrid(alive(), ui.sel)}`;
+    const rs = restrictions(step.pid);
+    h += `<p class="muted">Their choice:${rs.notes.length ? " (" + esc(rs.notes.join("; ")) + ")" : ""}</p>${pickGrid(alive(), ui.sel, rs.off)}`;
     if (r.ability === "investigate" && ui.sel !== null) {
       if (blocked) h += `<div class="result">Blocked: show the Detective nothing useful (e.g. a shrug).</div>`;
       else h += `<div class="result">Show them: <b>${roleOf(S.players[ui.sel]).team === "mafia" ? "👎 thumbs down (Mafia)" : "👍 thumbs up (not Mafia)"}</b></div>`;
