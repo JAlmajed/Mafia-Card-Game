@@ -86,7 +86,7 @@ function loadCfg() {
   ["roster","selected","customRoles"].forEach(k => { if (!Array.isArray(cfg[k])) cfg[k] = []; });
   if (!cfg.counts || typeof cfg.counts !== "object") cfg.counts = d.counts;
   if (!cfg.assign || typeof cfg.assign !== "object") cfg.assign = {};
-  if (!["manual","self"].includes(cfg.mode)) cfg.mode = "random";
+  if (!["manual","self","night"].includes(cfg.mode)) cfg.mode = "random";
   return cfg;
 }
 function saveCfg() { try { localStorage.setItem(CFG_KEY, JSON.stringify(CFG)); } catch (e) {} }
@@ -106,7 +106,7 @@ const $ = id => document.getElementById(id);
 function esc(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function shuffle(a) { for (let i=a.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
 function allRoles() { return BUILTIN.concat(CFG.customRoles); }
-function roleOf(p) { return S.roles[p.role]; }
+function roleOf(p) { return S.roles[p.role || "villager"]; }
 function addLog(t) { S.log.push(t); }
 function alive() { return S.players.map((p,i)=>({ ...p, i })).filter(p => p.alive); }
 function tag(role) { return `<span class="tag ${role.team}">${esc(role.emoji)} ${esc(role.name)}</span>`; }
@@ -177,7 +177,7 @@ function addCustomRole(name, emoji, team, ability) {
 function startGame() {
   const names = selectedNames();
   if (names.length < 4) return alert("Select at least 4 players.");
-  const manual = CFG.mode === "manual", self = CFG.mode === "self";
+  const manual = CFG.mode === "manual", self = CFG.mode === "self", night = CFG.mode === "night";
   const special = specialTotal();
   if (!manual && special > names.length) return alert("You have more special roles (" + special + ") than players (" + names.length + ").");
   const defs = {};
@@ -189,17 +189,20 @@ function startGame() {
     while (list.length < names.length) list.push("villager");
     shuffle(list);
   }
-  const players = names.map((name,i) => ({ name, role:self ? null : list[i], alive:true }));
+  const players = names.map((name,i) => ({ name, role:(self || night) ? null : list[i], alive:true }));
   const instant = evaluate(names.map((name,i) => ({ name, role:list[i], alive:true })), defs);
   if (instant) return alert("This setup would end immediately. Add at least one Mafia or Serial Killer, and fewer of them than the town.");
   const prior = freshGame(); prior._sel = null;
   S = freshGame();
   S.history = [JSON.stringify(prior)];
   S.roles = defs; S.players = players; S.phase = self ? "claim" : "roles";
+  const deck = {}; list.forEach(id => deck[id] = (deck[id] || 0) + 1);
   if (self) {
-    const deck = {}; list.forEach(id => deck[id] = (deck[id] || 0) + 1);
     S.blind = !!CFG.blind;
     S.claim = { idx:0, stage:"pass", deck, pool:Object.assign({}, deck) };
+  } else if (night) {
+    S.identify = true; S.deck = deck;
+    addLog("Game started with " + names.length + " players. Roles are identified during Night 1.");
   } else addLog("Game started with " + names.length + " players.");
   saveGame(); render();
 }
@@ -219,6 +222,29 @@ function claimReset() {
   const c = S.claim;
   c.idx = 0; c.stage = "pass"; c.pool = Object.assign({}, c.deck);
   S.players.forEach(p => p.role = null); ui.sel = null;
+  saveGame(); render();
+}
+
+/* ---------- Identify roles during Night 1 (physical cards) ---------- */
+function identifySteps() {
+  const w = r => r.team === "mafia" ? MAFIA_W : (r.ability !== "none" ? WEIGHT[r.ability] : 9);
+  const list = Object.keys(S.deck).filter(id => id !== "villager" && S.deck[id] > 0)
+    .map(id => ({ kind:"identify", roleId:id, w:w(S.roles[id]) }));
+  list.sort((a, b) => a.w - b.w);
+  return [{ kind:"close" }, ...list, { kind:"dawn" }];
+}
+function idConfirm() {
+  const step = S.steps[S.stepIdx], r = S.roles[step.roleId], need = S.deck[step.roleId];
+  if (!Array.isArray(ui.sel) || ui.sel.length !== need) return;
+  pushHistory();
+  ui.sel.forEach(i => S.players[i].role = step.roleId);
+  const extra = [];
+  if (r.team === "mafia") {
+    const moreMafia = S.steps.slice(S.stepIdx + 1).some(st => st.kind === "identify" && S.roles[st.roleId].team === "mafia");
+    if (!moreMafia) extra.push({ kind:"mafia", cont:true });
+  } else if (r.ability !== "none") ui.sel.forEach(i => extra.push({ kind:"role", pid:i, cont:true }));
+  S.steps.splice(S.stepIdx + 1, 0, ...extra);
+  S.stepIdx++; ui.sel = null;
   saveGame(); render();
 }
 
@@ -242,6 +268,7 @@ function beginNight(skipPush) {
   });
   entries.sort((a,b) => a.w - b.w || a.pid - b.pid);
   S.steps = [{ kind:"close" }, ...entries, { kind:"dawn" }];
+  if (S.identify && S.night === 1) S.steps = identifySteps();
   S.stepIdx = 0; ui.sel = null;
   addLog("— Night " + S.night + " —");
   saveGame(); render();
@@ -268,6 +295,7 @@ function nextStep() {
 
 function resolveDawn() {
   pushHistory();
+  S.players.forEach(p => { if (!p.role) p.role = "villager"; });
   const A = S.actions, blocked = blockedNow(), lines = [], kills = [], saved = new Set();
   const nm = i => S.players[i].name;
   S.players.forEach((p,i) => {
@@ -391,7 +419,7 @@ function playersCard() {
   const showTag = p => S.blind ? (!p.alive || S.phase === "over") : !ui.hideRoles;
   return `<div class="card"><div class="row"><h2 class="grow" style="margin:0">Players</h2>` +
     (S.blind ? "" : `<button class="secondary small" data-act="toggleRoles">${ui.hideRoles ? "Show roles" : "Hide roles"}</button>`) + `</div>` +
-    S.players.map(p => `<div class="player ${p.alive ? "" : "dead"}"><span>${esc(p.name)}</span>${showTag(p) ? tag(roleOf(p)) : ""}</div>`).join("") + `</div>`;
+    S.players.map(p => `<div class="player ${p.alive ? "" : "dead"}"><span>${esc(p.name)}</span>${showTag(p) ? (p.role ? tag(roleOf(p)) : `<span class="tag">❓ Not identified</span>`) : ""}</div>`).join("") + `</div>`;
 }
 function claimView() {
   const c = S.claim, p = S.players[c.idx], n = S.players.length;
@@ -450,10 +478,12 @@ function setupView() {
     <div class="tabs" style="justify-content:flex-start;flex-wrap:wrap">
       <button class="tab ${mode === "random" ? "on" : ""}" data-act="mode" data-m="random">🎲 Random</button>
       <button class="tab ${manual ? "on" : ""}" data-act="mode" data-m="manual">✋ Manual</button>
-      <button class="tab ${mode === "self" ? "on" : ""}" data-act="mode" data-m="self">📱 Players enter</button></div>`;
+      <button class="tab ${mode === "self" ? "on" : ""}" data-act="mode" data-m="self">📱 Players enter</button>
+      <button class="tab ${mode === "night" ? "on" : ""}" data-act="mode" data-m="night">🌙 In the night</button></div>`;
   if (manual) h += `<p class="muted">Choose each player's role yourself.</p>`;
   else if (mode === "self") h += `<p class="muted">For physical cards: set the roles in your deck below, deal the cards face-down without looking, then pass the phone around so each player secretly taps the role on their own card.</p>
     <label class="chk" style="margin-bottom:8px"><input type="checkbox" data-act="blind" ${CFG.blind ? "checked" : ""}> 🙈 Keep roles hidden from me (blind storyteller)</label>`;
+  else if (mode === "night") h += `<p class="muted">For physical cards: set the roles in your deck below and deal the cards face-down. Then in Night 1, when you call a role (for example Mafia), tap the player who opens their eyes. The app saves it for the whole game. Everyone you don't tap is a Villager.</p>`;
   else h += `<p class="muted">Roles are dealt randomly. Villagers fill the remaining seats.</p>`;
   if (!manual) allRoles().forEach(r => {
     const info = `${TEAMS[r.team]} · ${ABILITIES[r.ability]}${r.team === "mafia" ? " · wakes with the Mafia" : ""}`;
@@ -488,7 +518,7 @@ function setupView() {
     <label class="field">Discussion (minutes)<input type="number" id="discMin" min="0.5" step="0.5" value="${CFG.discussion}"></label>
     <label class="field">Voting (minutes)<input type="number" id="voteMin" min="0.5" step="0.5" value="${CFG.voting}"></label></div></div>`;
 
-  h += `<button data-act="start" style="width:100%;font-size:1.1rem">${CFG.mode === "self" ? "Start role entry" : "Assign roles &amp; start"} (${names.length} players)</button>`;
+  h += `<button data-act="start" style="width:100%;font-size:1.1rem">${CFG.mode === "self" ? "Start role entry" : (CFG.mode === "night" ? "Start" : "Assign roles &amp; start")} (${names.length} players)</button>`;
   return h;
 }
 
@@ -497,6 +527,16 @@ function nightView() {
   let h = `<div class="card"><h2>🌙 Night ${S.night}</h2>`;
   if (step.kind === "close") {
     h += `<div class="script">“Night falls on the town. Everyone, close your eyes.”</div><button data-act="next">Continue</button>`;
+  } else if (step.kind === "identify") {
+    const r = S.roles[step.roleId], need = S.deck[step.roleId];
+    const sel = Array.isArray(ui.sel) ? ui.sel : [];
+    const cand = S.players.map((p,i) => ({ ...p, i })).filter(p => p.role == null);
+    const acts = r.team === "mafia" || r.ability !== "none";
+    h += `<p class="muted">${esc(r.emoji)} Wake: <b>${esc(r.name)}</b></p>`;
+    h += `<div class="script">“${esc(r.name)}, open your eyes.${acts ? "" : " Look at me. … " + esc(r.name) + ", close your eyes."}”</div>`;
+    h += `<p class="muted">Tap the ${need} player${need > 1 ? "s" : ""} who opened their eyes (${sel.length} of ${need}). The app remembers it for the rest of the game.</p>`;
+    h += `<div class="grid">${cand.map(p => `<button class="pick ${sel.includes(p.i) ? "sel" : ""}" data-act="idPick" data-i="${p.i}">${esc(p.name)}</button>`).join("")}</div>`;
+    h += `<button data-act="idOk" ${sel.length === need ? "" : "disabled"}>Confirm</button>`;
   } else if (step.dead) {
     const isM = step.kind === "mafia", dp = S.players[step.pid];
     const r = isM ? { name:"Mafia", emoji:"🔪", ability:"kill" } : roleOf(dp);
@@ -508,7 +548,7 @@ function nightView() {
   } else if (step.kind === "mafia") {
     const mm = mafiaIdx(), blocked = blockedNow();
     h += `<p class="muted">🔪 Wake: ${S.blind ? "<b>Mafia</b>" : mm.map(i => esc(S.players[i].name)).join(", ")}</p>`;
-    h += `<div class="script">“Mafia, open your eyes. Choose who to eliminate. … Mafia, close your eyes.”</div>`;
+    h += `<div class="script">“${step.cont ? "" : "Mafia, open your eyes. "}Choose who to eliminate. … Mafia, close your eyes.”</div>`;
     if (mm.some(i => blocked.has(i))) h += `<div class="blocked">🚫 A Mafia member was blocked tonight, so the Mafia kill will fail. Let them choose anyway so nobody can tell.</div>`;
     h += `<p class="muted">Who did the Mafia point at?</p>${pickGrid(alive(), ui.sel)}
       <button data-act="next" ${ui.sel === null ? "disabled" : ""}>Confirm</button>`;
@@ -516,7 +556,7 @@ function nightView() {
     const p = S.players[step.pid], r = roleOf(p), blocked = blockedNow().has(step.pid);
     const verb = { block:"Choose someone to spend the night with.", kill:"Choose who to eliminate.", save:"Choose who to protect tonight.", investigate:"Choose someone to investigate." }[r.ability];
     h += `<p class="muted">${esc(r.emoji)} Wake: ${wakeLabel(p.name, r)}</p>`;
-    h += `<div class="script">“${esc(r.name)}, open your eyes. ${verb} … ${esc(r.name)}, close your eyes.”</div>`;
+    h += `<div class="script">“${step.cont ? "" : esc(r.name) + ", open your eyes. "}${verb} … ${esc(r.name)}, close your eyes.”</div>`;
     if (blocked) {
       h += `<div class="blocked">🚫 ${esc(S.blind ? "The " + r.name : p.name)} was blocked tonight: their ability does nothing. Let them pick anyway, or just continue.</div>`;
     }
@@ -550,7 +590,9 @@ function render() {
   let h = "";
   if (S.phase === "setup") h = setupView();
   else if (S.phase === "roles") {
-    h = (S.blind
+    h = (S.identify
+      ? `<div class="card"><h2>🌙 Roles are identified tonight</h2><p class="muted">Deal the cards face-down. In Night 1, when you call each role, tap the player(s) who open their eyes. The app saves it for the rest of the game, so you never have to ask anyone.</p></div>`
+      : S.blind
       ? `<div class="card"><h2>🔒 All roles entered</h2><p class="muted">Every player entered their own role privately, so you don't know who is who. Start the first night when everyone is ready.</p></div>`
       : `<div class="card"><h2>Roles assigned</h2><p class="muted">Only the storyteller should see this screen. Hand out the cards, then start the first night. Use “Hide roles” before showing the screen to anyone.</p></div>`) +
       playersCard() + `<div class="row"><button data-act="begin">Start Night 1</button><button class="secondary" data-act="back">← Back</button></div>`;
@@ -593,11 +635,18 @@ $("app").addEventListener("click", e => {
       if (err) alert(err); else render();
       break;
     }
-    case "mode": CFG.mode = ["manual","self"].includes(b.dataset.m) ? b.dataset.m : "random"; saveCfg(); render(); break;
+    case "mode": CFG.mode = ["manual","self","night"].includes(b.dataset.m) ? b.dataset.m : "random"; saveCfg(); render(); break;
     case "claimShow": S.claim.stage = "pick"; ui.sel = null; saveGame(); render(); break;
     case "claimHide": S.claim.stage = "pass"; ui.sel = null; saveGame(); render(); break;
     case "claimRole": ui.sel = ui.sel === b.dataset.id ? null : b.dataset.id; render(); break;
     case "claimOk": claimConfirm(); break;
+    case "idPick": {
+      const a = Array.isArray(ui.sel) ? ui.sel.slice() : [], k = a.indexOf(i);
+      const need = S.deck[S.steps[S.stepIdx].roleId];
+      if (k >= 0) a.splice(k, 1); else if (a.length < need) a.push(i);
+      ui.sel = a; render(); break;
+    }
+    case "idOk": idConfirm(); break;
     case "claimRestart": if (confirm("Restart role entry for everyone?")) claimReset(); break;
     case "start": startGame(); break;
     case "begin": beginNight(); break;
