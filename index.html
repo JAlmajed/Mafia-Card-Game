@@ -413,7 +413,9 @@ function nightView() {
       else h += `<div class="result">Show them: <b>${roleOf(S.players[ui.sel]).team === "mafia" ? "👎 thumbs down (Mafia)" : "👍 thumbs up (not Mafia)"}</b></div>`;
     }
     const skipLabel = r.ability === "kill" ? "😴 No kill tonight (skip)" : "Skip";
-    h += `<button data-act="next">${ui.sel === null ? skipLabel : "Confirm"}</button>`;
+    // The Doctor must protect someone, unless every option is off-limits.
+    const mustPick = r.ability === "save" && alive().some(a => !rs.off.includes(a.i));
+    h += `<button data-act="next" ${mustPick && ui.sel === null ? "disabled" : ""}>${ui.sel === null && !mustPick ? skipLabel : "Confirm"}</button>`;
   } else {
     h += `<div class="script">“The sun rises. Everyone, open your eyes.”</div><button data-act="dawn">Reveal what happened</button>`;
   }
