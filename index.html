@@ -78,6 +78,7 @@ const BUILTIN = [
 const CFG_KEY = "mafia-storyteller-cfg-v2", GAME_KEY = "mafia-storyteller-game-v2";
 
 /* ---------- Persistence ---------- */
+function sortNames(a) { return a.sort((x, y) => x.localeCompare(y, undefined, { sensitivity:"base", numeric:true })); }
 function loadCfg() {
   let c = {};
   try { c = JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch (e) {}
@@ -85,6 +86,7 @@ function loadCfg() {
   const cfg = Object.assign(d, c);
   ["roster","selected","customRoles"].forEach(k => { if (!Array.isArray(cfg[k])) cfg[k] = []; });
   if (!cfg.counts || typeof cfg.counts !== "object") cfg.counts = d.counts;
+  sortNames(cfg.roster);
   if (!["self","night"].includes(cfg.mode)) cfg.mode = "self";
   return cfg;
 }
@@ -156,7 +158,7 @@ function addNames(raw) {
   raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean).forEach(name => {
     const existing = CFG.roster.find(n => n.toLowerCase() === name.toLowerCase());
     const use = existing || name;
-    if (!existing) CFG.roster.push(name);
+    if (!existing) { CFG.roster.push(name); sortNames(CFG.roster); }
     if (!CFG.selected.includes(use)) CFG.selected.push(use);
   });
   saveCfg();
@@ -214,6 +216,18 @@ function claimFinish() {
   addLog("Game started with " + S.players.length + " players. Roles were entered privately by the players.");
   saveGame(); render();
 }
+function claimBack() {
+  const c = S.claim;
+  if (c.stage === "pick") { c.stage = "pass"; ui.sel = null; }
+  else if (c.idx > 0) {
+    c.idx--;
+    const p = S.players[c.idx];
+    if (p.role) { c.pool[p.role] = (c.pool[p.role] || 0) + 1; p.role = null; }
+    c.stage = "pass"; ui.sel = null;
+  } else { goBack(); return; }
+  saveGame(); render();
+}
+function backAction() { if (S.phase === "claim") claimBack(); else goBack(); }
 function claimReset() {
   const c = S.claim;
   c.idx = 0; c.stage = "pass"; c.pool = Object.assign({}, c.deck);
@@ -424,7 +438,8 @@ function claimView() {
       <h2>✅ All roles entered</h2>
       <p style="font-size:1.2rem;margin:14px 0">📱 Please hand the phone back to the <b>storyteller</b>.</p>
       <p class="muted">Players: nobody look at the screen after this point.</p>
-      <button data-act="claimDone" style="width:100%;font-size:1.1rem">I'm the storyteller: continue</button></div>`;
+      <button data-act="claimDone" style="width:100%;font-size:1.1rem">I'm the storyteller: continue</button>
+      <div class="row center"><button class="secondary" data-act="back">← Previous player</button></div></div>`;
   }
   const p = S.players[c.idx], n = S.players.length;
   let h = `<div class="card"><p class="muted">Role entry · ${c.idx + 1} of ${n}</p>`;
@@ -432,12 +447,12 @@ function claimView() {
     h += `<h2>📱 Pass the phone to <b>${esc(p.name)}</b></h2>
       <p class="muted">Everyone else, look away. ${esc(p.name)}, take your card and tap the button.</p>
       <button data-act="claimShow" style="width:100%;font-size:1.1rem">I'm ${esc(p.name)}: enter my role</button>
-      <div class="row"><button class="secondary small" data-act="claimRestart">↺ Restart role entry</button></div>`;
+      <div class="row"><button class="secondary small" data-act="back">${c.idx > 0 ? "← Previous player" : "← Back to setup"}</button><button class="secondary small" data-act="claimRestart">↺ Restart role entry</button></div>`;
   } else {
     const avail = allRoles().filter(r => (c.pool[r.id] || 0) > 0);
     h += `<h2>${esc(p.name)}, tap the role on your card</h2><p class="muted">Make sure nobody is looking at the screen.</p>
       <div class="grid">${avail.map(r => `<button class="pick ${ui.sel === r.id ? "sel" : ""}" data-act="claimRole" data-id="${r.id}">${esc(r.emoji)} ${esc(r.name)}</button>`).join("")}</div>
-      <div class="row"><button data-act="claimOk" ${ui.sel === null ? "disabled" : ""}>Confirm &amp; hide</button><button class="secondary" data-act="claimHide">Cancel</button></div>`;
+      <div class="row"><button data-act="claimOk" ${ui.sel === null ? "disabled" : ""}>Confirm &amp; hide</button><button class="secondary" data-act="claimHide">← Back</button></div>`;
   }
   return h + `</div>`;
 }
@@ -486,7 +501,7 @@ function setupView() {
   else h += `<p class="muted">For physical cards: set the roles in your deck below, deal the cards face-down without looking, then pass the phone around so each player secretly taps the role on their own card.</p>
     <label class="chk" style="margin-bottom:8px"><input type="checkbox" data-act="blind" ${CFG.blind ? "checked" : ""}> 🙈 Keep roles hidden from me (blind storyteller)</label>`;
   allRoles().forEach(r => {
-    const info = `${TEAMS[r.team]} · ${ABILITIES[r.ability]}${r.team === "mafia" ? " · wakes with the Mafia" : ""}`;
+    const info = r.team === "mafia" && r.ability === "none" ? `${TEAMS[r.team]} · Kills a player` : `${TEAMS[r.team]} · ${ABILITIES[r.ability]}`;
     if (r.id === "villager") {
       h += `<div class="item"><div>${esc(r.emoji)} <b>${esc(r.name)}</b><div class="muted">${info}</div></div><b>${villagers}</b></div>`;
     } else {
@@ -594,7 +609,7 @@ function render() {
   }
   if (S.phase !== "setup" && S.phase !== "claim") h += logCard();
   $("app").innerHTML = h;
-  $("backBtn").hidden = S.phase === "setup" || S.phase === "claim" || !(S.history && S.history.length);
+  $("backBtn").hidden = S.phase === "setup" || (S.phase !== "claim" && !(S.history && S.history.length));
 }
 
 /* ---------- Events ---------- */
@@ -640,7 +655,7 @@ $("app").addEventListener("click", e => {
     case "claimRestart": if (confirm("Restart role entry for everyone?")) claimReset(); break;
     case "start": startGame(); break;
     case "begin": beginNight(); break;
-    case "back": goBack(); break;
+    case "back": backAction(); break;
     case "pick": ui.sel = ui.sel === i ? null : i; render(); break;
     case "next": nextStep(); break;
     case "dawn": resolveDawn(); break;
@@ -673,7 +688,7 @@ $("app").addEventListener("keydown", e => {
   if (e.key === "Enter" && e.target.id === "newName") { addNames(e.target.value); render(); $("newName").focus(); }
 });
 function newGame() { S = freshGame(); ui.sel = null; saveGame(); render(); }
-$("backBtn").onclick = goBack;
+$("backBtn").onclick = backAction;
 $("resetBtn").onclick = () => {
   if (S.phase === "setup" || confirm("Abandon the current game and go back to setup?")) newGame();
 };

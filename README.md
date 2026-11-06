@@ -3,7 +3,7 @@
 A single-page web app that helps the storyteller (narrator) run a game of Mafia with cards. No backend, no build step: just open `index.html`.
 
 ## Features
-- **Saved player names**: add names once (comma-separated works too), tick the ones playing tonight, untick or delete the rest. Names and your selection are remembered on the device.
+- **Saved player names**: add names once (comma-separated works too); the list is always sorted A–Z. Tick the ones playing tonight, untick or delete the rest. Names and your selection are remembered on the device.
 - **Two ways to play with physical cards** (pick one in setup): 📱 Players enter, or 🌙 In the night. Set the roles in your deck (counts) first; Villagers fill the remaining seats. Roles: Mafia, Doctor, Detective, Girlfriend, Serial Killer.
 - **Physical cards, identify in the night** (🌙 In the night): set the roles in your deck and deal the cards face-down. In Night 1, when you call a role (for example Mafia), tap the player(s) who open their eyes. The app saves it for the rest of the game, for every role except Villager. Everyone you don't tap becomes a Villager. Made a mistake? Press Back.
 - **Physical cards, blind storyteller** (📱 Players enter): set the roles in your deck, shuffle and deal the cards face-down without looking, then pass the phone around. Each player taps their own role in private and the screen hides it again. The storyteller never sees who has what: night prompts say "Wake: Doctor" instead of a name, and a role is only revealed when its owner dies. (Untick "Keep roles hidden from me" if you'd rather see them. The Detective's thumbs answer still tells you about the one player they check.)
@@ -11,7 +11,7 @@ A single-page web app that helps the storyteller (narrator) run a game of Mafia 
 - **Guided night**: read-aloud scripts, tells you exactly whom to wake, and shows the Detective's answer.
 - **Dead roles keep their story**: if a role is dead (for example the Doctor), the app still gives you the script to read so nobody can tell who died. It shows "💀 dead" for you and asks for no choice.
 - **Discussion and voting timers**: set the minutes in setup; start, pause, reset, ±30s, with a beep and vibration at zero. The timer survives a page refresh.
-- **← Back button**: undo the last step (a night choice, the dawn reveal, a vote, or going back to setup) if you tap by mistake.
+- **← Back button** on every screen after setup: undo the last step (a night choice, the dawn reveal, a vote) if you tap by mistake. During private role entry it goes back one player without ever showing a role.
 - Alive tracking, win detection, a game log, a private night report, and a "Hide roles" button.
 
 ## Role rules used
