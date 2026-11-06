@@ -211,7 +211,8 @@ function resolveDawn() {
   S.players.forEach((p,i) => {
     if (!p.alive) return;
     const r = roleOf(p), t = A[i];
-    if (t == null || r.ability === "none") return;
+    if (r.ability === "none") return;
+    if (t == null) { if (r.ability === "kill") lines.push(`${r.name} (${p.name}) chose not to kill`); return; }
     if (blocked.has(i)) { lines.push(`${r.name} (${p.name}) was blocked`); return; }
     if (r.ability === "kill") { kills.push(t); lines.push(`${r.name} (${p.name}) targeted ${nm(t)}`); }
     if (r.ability === "save") { saved.add(t); lines.push(`${r.name} (${p.name}) protected ${nm(t)}`); }
@@ -412,7 +413,8 @@ function nightView() {
       if (blocked) h += `<div class="result">Blocked: show the Detective nothing useful (e.g. a shrug).</div>`;
       else h += `<div class="result">Show them: <b>${roleOf(S.players[ui.sel]).team === "mafia" ? "👎 thumbs down (Mafia)" : "👍 thumbs up (not Mafia)"}</b></div>`;
     }
-    h += `<button data-act="next">${ui.sel === null ? "Skip" : "Confirm"}</button>`;
+    const skipLabel = r.ability === "kill" ? "😴 No kill tonight (skip)" : "Skip";
+    h += `<button data-act="next">${ui.sel === null ? skipLabel : "Confirm"}</button>`;
   } else {
     h += `<div class="script">“The sun rises. Everyone, open your eyes.”</div><button data-act="dawn">Reveal what happened</button>`;
   }
