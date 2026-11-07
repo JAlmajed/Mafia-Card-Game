@@ -28,7 +28,7 @@ Night order: Girlfriend → Mafia → Serial Killer → Doctor → Detective.
 **Winning:** Town wins when all Mafia and Serial Killers are gone. Mafia wins when they equal or outnumber everyone else and no Serial Killer is alive. The Serial Killer wins when no Mafia are left and only 2 players remain. If everyone dies, it's a draw.
 
 ## Run it
-Open `index.html` in any browser.
+Open `index.html` in any browser. Keep `logo.png` in the same folder as `index.html` (it's the app logo and the browser-tab icon).
 
 ## Publish on GitHub Pages
 1. In the repo, go to **Settings → Pages**.

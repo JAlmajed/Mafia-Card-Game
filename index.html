@@ -4,12 +4,18 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mafia Storyteller</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
 <style>
   :root { --bg:#14121a; --card:#1f1c2a; --text:#ece8f5; --muted:#9a94ad; --accent:#c0392b; --ok:#2e9e6b; --warn:#d4a017; --line:#322e42; --soft:#2a2538; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; line-height:1.45; }
   main { max-width:720px; margin:0 auto; padding:16px; }
   h1 { font-size:1.3rem; margin:0; }
+  .brand { display:flex; align-items:center; gap:10px; }
+  .logo-sm { width:40px; height:40px; border-radius:8px; display:block; }
+  .hero { text-align:center; margin:4px 0 16px; }
+  .logo-lg { width:150px; height:150px; border-radius:18px; border:1px solid var(--line); }
   h2 { font-size:1.1rem; margin:0 0 8px; }
   header { position:sticky; top:0; z-index:5; background:var(--bg); display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); max-width:720px; margin:0 auto; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
@@ -54,7 +60,7 @@
 </style>
 </head>
 <body>
-<header><h1>🎭 Mafia Storyteller</h1><div class="row" style="margin:0"><button class="secondary small" id="backBtn" hidden>← Back</button><button class="secondary small" id="resetBtn">New game</button></div></header>
+<header><div class="brand"><img src="logo.png" alt="Mafia Game logo" class="logo-sm"><h1>Storyteller</h1></div><div class="row" style="margin:0"><button class="secondary small" id="backBtn" hidden>← Back</button><button class="secondary small" id="resetBtn">New game</button></div></header>
 <main id="app"></main>
 
 <script>
@@ -481,7 +487,8 @@ function timerCard() {
 function setupView() {
   const names = selectedNames();
   const villagers = Math.max(0, names.length - specialTotal());
-  let h = `<div class="card"><h2>1. Players</h2>
+  let h = `<div class="hero"><img src="logo.png" alt="Mafia Game" class="logo-lg"></div>
+  <div class="card"><h2>1. Players</h2>
     <p class="muted">Saved names stay on this device. Tick the ones playing tonight.</p>
     <div class="row"><input type="text" id="newName" class="grow" placeholder="Add a name (or several, comma-separated)"><button data-act="addName">Add</button></div>`;
   if (CFG.roster.length) {
