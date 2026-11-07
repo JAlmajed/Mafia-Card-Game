@@ -14,8 +14,6 @@
   h1 { font-size:1.3rem; margin:0; }
   .brand { display:flex; align-items:center; gap:10px; }
   .logo-sm { width:40px; height:40px; border-radius:8px; display:block; }
-  .hero { text-align:center; margin:4px 0 16px; }
-  .logo-lg { width:150px; height:150px; border-radius:18px; border:1px solid var(--line); }
   h2 { font-size:1.1rem; margin:0 0 8px; }
   header { position:sticky; top:0; z-index:5; background:var(--bg); display:flex; justify-content:space-between; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); max-width:720px; margin:0 auto; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:14px; }
@@ -487,8 +485,7 @@ function timerCard() {
 function setupView() {
   const names = selectedNames();
   const villagers = Math.max(0, names.length - specialTotal());
-  let h = `<div class="hero"><img src="logo.png" alt="Mafia Game" class="logo-lg"></div>
-  <div class="card"><h2>1. Players</h2>
+  let h = `<div class="card"><h2>1. Players</h2>
     <p class="muted">Saved names stay on this device. Tick the ones playing tonight.</p>
     <div class="row"><input type="text" id="newName" class="grow" placeholder="Add a name (or several, comma-separated)"><button data-act="addName">Add</button></div>`;
   if (CFG.roster.length) {
