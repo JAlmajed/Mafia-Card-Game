@@ -326,6 +326,10 @@ function resolveDawn() {
   const mm = mafiaIdx();
   if (mm.length && A.m != null) {
     if (mm.some(i => blocked.has(i))) lines.push("Mafia kill cancelled: a Mafia member was blocked");
+    else if (roleOf(S.players[A.m]).team === "killer") {
+      // The Mafia can't kill a Serial Killer: the attempt simply fails.
+      lines.push(`Mafia targeted ${nm(A.m)}: the attack failed` + (S.blind ? "" : " (the Mafia can't kill the Serial Killer)"));
+    }
     else { kills.push(A.m); lines.push(`Mafia targeted ${nm(A.m)}`); }
   }
   const died = [], seen = new Set();
